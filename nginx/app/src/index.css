@@ -1,0 +1,76 @@
+﻿@import "tailwindcss";
+
+@layer base {
+  :root {
+    --theme-primary-400: #fb923c;
+    --theme-primary-500: #f97316;
+    --theme-primary-600: #ea580c;
+    --theme-primary-700: #c2410c;
+    --theme-primary-surface: rgba(249, 115, 22, 0.12);
+    --theme-primary-surface-strong: rgba(249, 115, 22, 0.2);
+    --theme-primary-border-100: #ffedd5;
+    --theme-primary-border-200: #fed7aa;
+    --theme-primary-border-300: #fdba74;
+  }
+
+  [data-theme="teal"] {
+    --theme-primary-400: #2dd4bf;
+    --theme-primary-500: #14b8a6;
+    --theme-primary-600: #0d9488;
+    --theme-primary-700: #0f766e;
+    --theme-primary-surface: rgba(20, 184, 166, 0.12);
+    --theme-primary-surface-strong: rgba(20, 184, 166, 0.2);
+    --theme-primary-border-100: #ccfbf1;
+    --theme-primary-border-200: #99f6e4;
+    --theme-primary-border-300: #5eead4;
+  }
+
+  [data-theme="green"] {
+    --theme-primary-400: #4ade80;
+    --theme-primary-500: #22c55e;
+    --theme-primary-600: #16a34a;
+    --theme-primary-700: #166534;
+    --theme-primary-surface: rgba(34, 197, 94, 0.12);
+    --theme-primary-surface-strong: rgba(34, 197, 94, 0.2);
+    --theme-primary-border-100: #dcfce7;
+    --theme-primary-border-200: #bbf7d0;
+    --theme-primary-border-300: #86efac;
+  }
+
+  [data-theme="pink"] {
+    --theme-primary-400: #f472b6;
+    --theme-primary-500: #ec4899;
+    --theme-primary-600: #db2777;
+    --theme-primary-700: #9d174d;
+    --theme-primary-surface: rgba(236, 72, 153, 0.12);
+    --theme-primary-surface-strong: rgba(236, 72, 153, 0.2);
+    --theme-primary-border-100: #fce7f3;
+    --theme-primary-border-200: #fbcfe8;
+    --theme-primary-border-300: #f9a8d4;
+  }
+}
+
+@layer utilities {
+  .bg-orange-500 { background-color: var(--theme-primary-500) !important; }
+  .bg-orange-600 { background-color: var(--theme-primary-600) !important; }
+  .bg-orange-400 { background-color: var(--theme-primary-400) !important; }
+  .bg-orange-50\/90 { background-color: var(--theme-primary-surface) !important; }
+  .bg-orange-50 { background-color: var(--theme-primary-surface) !important; }
+  .hover\:bg-orange-600:hover { background-color: var(--theme-primary-600) !important; }
+  .hover\:bg-orange-400:hover { background-color: var(--theme-primary-400) !important; }
+  .hover\:bg-orange-50\/40:hover { background-color: var(--theme-primary-surface-strong) !important; }
+  .border-orange-100 { border-color: var(--theme-primary-border-100) !important; }
+  .border-orange-200 { border-color: var(--theme-primary-border-200) !important; }
+  .border-orange-300 { border-color: var(--theme-primary-border-300) !important; }
+  .hover\:border-orange-400:hover { border-color: var(--theme-primary-400) !important; }
+  .text-orange-600 { color: var(--theme-primary-600) !important; }
+  .text-orange-700 { color: var(--theme-primary-700) !important; }
+  .bg-orange-400 { background-color: var(--theme-primary-400) !important; }
+  .from-orange-500 {
+    --tw-gradient-from: var(--theme-primary-500) !important;
+    --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important;
+  }
+  .to-orange-500 {
+    --tw-gradient-to: var(--theme-primary-600) !important;
+  }
+}
