@@ -1,0 +1,67 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:17
+    container_name: postgres-stamprally-app
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER:-fricton}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-fricton99}
+      POSTGRES_DB: ${DB_NAME:-stamprally-db}
+    volumes:
+      - ./postgres_data:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/01-init.sql
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-fricton}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  fastapi:
+    build: ./fastapi
+    container_name: fastapi-stamprally-app
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - ./fastapi/.env
+    environment:
+      DATABASE_URL: postgresql://${DB_USER:-fricton}:${DB_PASSWORD:-fricton99}@postgres:5432/${DB_NAME:-stamprally-db}
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-stamprally-db}
+      DB_USER: ${DB_USER:-fricton}
+      DB_PASSWORD: ${DB_PASSWORD:-fricton99}
+    volumes:
+      - ./fastapi:/app
+    ports:
+      - "${API_PORT:-8000}:8000"
+    networks:
+      - app-network
+
+  web:
+    image: nginx:latest
+    container_name: nginx-stamprally-app
+    restart: always
+    depends_on:
+      - fastapi
+    volumes:
+      - ./nginx/app/dist:/usr/share/nginx/html
+      - ./nginx/conf.d/default.conf:/etc/nginx/conf.d/default.conf
+    ports:
+      - "${WEB_PORT:-8080}:80"
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
