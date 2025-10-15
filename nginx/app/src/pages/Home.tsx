@@ -9,8 +9,6 @@ const clampPercentage = (value: number) => Math.max(0, Math.min(100, value))
 const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3)
 const ANIMATION_DURATION = 600
 
-//gitのテスト
-
 export default function Home() {
   const tenantId = useTenantId()
   const progress = useAppStore((s) => s.progress)
