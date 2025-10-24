@@ -19,6 +19,7 @@ export default function UserAuthPage() {
   const [regEmail, setRegEmail] = useState("")
   const [regPassword, setRegPassword] = useState("")
   const [regGender, setRegGender] = useState("")
+  const [regAge, setRegAge] = useState("")
 
   const [localError, setLocalError] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
@@ -80,8 +81,13 @@ export default function UserAuthPage() {
     setLocalError(null)
     setSuccessMessage(null)
     clearError()
-    if (!regUsername || !regEmail || !regPassword) {
-      setLocalError("必要な項目をすべて入力してください。")
+    if (!regUsername || !regEmail || !regGender || !regAge || !regPassword) {
+      setLocalError("必須項目（ユーザー名・メールアドレス・性別・年齢・パスワード）をすべて入力してください。")
+      return
+    }
+    const parsedAge = Number.parseInt(regAge, 10)
+    if (!Number.isFinite(parsedAge) || parsedAge < 0 || parsedAge > 120) {
+      setLocalError("年齢は0〜120の数値で入力してください。")
       return
     }
     try {
@@ -90,12 +96,14 @@ export default function UserAuthPage() {
         username: regUsername,
         email: regEmail,
         password: regPassword,
-        gender: regGender || undefined,
+        gender: regGender,
+        age: parsedAge,
       })
       setRegUsername("")
       setRegEmail("")
       setRegPassword("")
       setRegGender("")
+      setRegAge("")
       setSuccessMessage("アカウントを作成しました。ログインしてください。")
     } catch (err) {
       const message = err instanceof Error ? err.message : "登録に失敗しました。"
@@ -210,6 +218,34 @@ export default function UserAuthPage() {
             />
           </div>
           <div className="space-y-1">
+            <label className="block text-xs font-semibold text-gray-700">性別</label>
+            <select
+              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-orange-400 focus:outline-none focus:ring-1 focus:ring-orange-400 bg-white"
+              value={regGender}
+              onChange={(event) => setRegGender(event.target.value)}
+            >
+              <option value="" disabled>
+                選択してください
+              </option>
+              <option value="male">男性</option>
+              <option value="female">女性</option>
+              <option value="other">その他</option>
+            </select>
+          </div>
+          <div className="space-y-1">
+            <label className="block text-xs font-semibold text-gray-700">年齢</label>
+            <input
+              type="number"
+              min={0}
+              max={120}
+              inputMode="numeric"
+              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-orange-400 focus:outline-none focus:ring-1 focus:ring-orange-400"
+              value={regAge}
+              onChange={(event) => setRegAge(event.target.value)}
+              placeholder="例: 29"
+            />
+          </div>
+          <div className="space-y-1">
             <label className="block text-xs font-semibold text-gray-700">パスワード</label>
             <input
               type="password"
@@ -217,16 +253,6 @@ export default function UserAuthPage() {
               value={regPassword}
               onChange={(event) => setRegPassword(event.target.value)}
               autoComplete="new-password"
-            />
-          </div>
-          <div className="space-y-1">
-            <label className="block text-xs font-semibold text-gray-700">性別（任意）</label>
-            <input
-              type="text"
-              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-orange-400 focus:outline-none focus:ring-1 focus:ring-orange-400"
-              value={regGender}
-              onChange={(event) => setRegGender(event.target.value)}
-              placeholder="male / female / other"
             />
           </div>
           <button

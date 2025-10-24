@@ -38,6 +38,7 @@ class UserResponse(BaseModel):
     role: str
     tenant_id: str
     gender: Optional[str] = None
+    age: Optional[int] = None
 
 
 class LoginRequest(BaseModel):
@@ -89,6 +90,7 @@ def _fetch_user_by_identifier(
             password_hash,
             role,
             gender,
+            age,
             is_active
         FROM users
         WHERE {' AND '.join(conditions)}
@@ -226,4 +228,5 @@ async def read_users_me(current_user: dict = Depends(get_current_user)):
         role=current_user.get("role", ""),
         tenant_id=current_user.get("tenant_id", ""),
         gender=current_user.get("gender"),
+        age=current_user.get("age"),
     )

@@ -11,12 +11,15 @@ from routers import auth
 from routers import tenants
 from routers import users
 from routers import uploads
+from database.migrations import run_schema_migrations
 
 # ロギング設定
 logging.basicConfig(
     level=logging.DEBUG if settings.DEBUG else logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
+
+run_schema_migrations()
 
 app = FastAPI(
     title=settings.APP_NAME,

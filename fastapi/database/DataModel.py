@@ -15,6 +15,7 @@ class Users(BaseModel):
     password_hash: Optional[str] = None
     role: Optional[str] = None
     gender: Optional[str] = None
+    age: Optional[int] = None
     is_active: Optional[bool] = True
     created_at: Optional[Union[datetime, str]] = None
     updated_at: Optional[Union[datetime, str]] = None
