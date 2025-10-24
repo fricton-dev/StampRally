@@ -26,6 +26,7 @@ export type Coupon = {
   title: string
   description?: string
   used: boolean
+  icon?: string | null
 }
 
 export type TenantConfig = {

@@ -307,7 +307,7 @@ export default function Home() {
                   className="flex items-center gap-3 rounded-lg border border-orange-200 bg-orange-50 px-3 py-2"
                 >
                   <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg border border-orange-100 bg-white">
-                    <CouponIcon icon={coupon.icon} className="h-6 w-6 text-orange-500" />
+                    <CouponIcon icon={coupon.icon ?? undefined} className="h-6 w-6 text-orange-500" />
                   </div>
                   <div className="min-w-0">
                     <div className="text-sm font-semibold text-orange-700">{coupon.title}</div>
