@@ -2,7 +2,7 @@ import logging
 from typing import Any, Dict, List, Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 
 from database.database import DatabaseService, get_db_service
 from routers.auth import UserResponse, get_current_user
@@ -19,8 +19,9 @@ class UserCreate(BaseModel):
     username: str
     email: EmailStr
     password: str
+    gender: str = Field(..., min_length=1, max_length=20)
+    age: int = Field(..., ge=0, le=120)
     role: Optional[str] = "user"
-    gender: Optional[str] = None
 
 
 class CouponModel(BaseModel):
@@ -171,10 +172,11 @@ async def register_user(
             password_hash,
             role,
             gender,
+            age,
             is_active
         )
-        VALUES (%s, %s, %s, %s, %s, %s, TRUE)
-        RETURNING id, tenant_id, username, email, role, gender, is_active
+        VALUES (%s, %s, %s, %s, %s, %s, %s, TRUE)
+        RETURNING id, tenant_id, username, email, role, gender, age, is_active
         """,
         (
             payload.tenant_id,
@@ -183,6 +185,7 @@ async def register_user(
             password_hash,
             payload.role or "user",
             payload.gender,
+            payload.age,
         ),
     )
 
@@ -197,6 +200,7 @@ async def register_user(
         role=user_row.get("role", "user"),
         tenant_id=user_row["tenant_id"],
         gender=user_row.get("gender"),
+        age=user_row.get("age"),
     )
 
     _ensure_user_progress(db, user_row["id"], user_row["tenant_id"])
@@ -228,6 +232,7 @@ async def read_users_me(
         role=current_user.get("role", ""),
         tenant_id=current_user.get("tenant_id", ""),
         gender=current_user.get("gender"),
+        age=current_user.get("age"),
     )
 
 

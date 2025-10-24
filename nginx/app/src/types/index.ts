@@ -39,6 +39,7 @@ export type TenantConfig = {
   campaignEnd?: string
   campaignDescription?: string
   themeColor?: ThemeColor
+  maxStampCount?: number | null
 }
 
 export type UserProgress = {
@@ -87,6 +88,7 @@ export type UserProfile = {
   role: string
   tenant_id: TenantId
   gender?: string | null
+  age?: number | null
 }
 
 export type AuthToken = {

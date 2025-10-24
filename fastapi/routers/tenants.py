@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Security, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 
 from config import settings
 from database.database import DatabaseService, get_db_service
@@ -77,6 +77,7 @@ class TenantConfigModel(BaseModel):
     campaignEnd: Optional[str] = None
     campaignDescription: Optional[str] = None
     themeColor: Optional[str] = None
+    maxStampCount: Optional[int] = None
 
 
 class TenantProgressSeed(BaseModel):
@@ -159,6 +160,7 @@ class CampaignUpdateRequest(BaseModel):
     background_image_url: Optional[str] = None
     stamp_image_url: Optional[str] = None
     theme_color: Optional[str] = None
+    max_stamps: Optional[int] = Field(default=None, ge=1, le=200)
 
 
 bearer_scheme = HTTPBearer(auto_error=False)
@@ -210,7 +212,8 @@ async def tenant_login(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
 
     access_token = create_access_token(
-        {"sub": tenant["tenant_id"], "tenant_id": tenant["tenant_id"], "role": "tenant_admin"}
+        {"sub": tenant["tenant_id"], "tenant_id": tenant["tenant_id"], "role": "tenant_admin"},
+        expires_delta=timedelta(days=1),
     )
     must_change_password = bool(tenant.get("admin_password_must_change", False))
 
@@ -291,6 +294,11 @@ async def fetch_tenant_seed(
     campaign_description = config.get("campaignDescription")
     stamp_mark = config.get("stampMark")
     theme_color = config.get("themeColor") or "orange"
+    max_stamp_raw = config.get("maxStampCount")
+    try:
+        max_stamp_count = int(max_stamp_raw)
+    except (TypeError, ValueError):
+        max_stamp_count = None
 
     rules_rows = db.execute_query(
         """
@@ -364,6 +372,7 @@ async def fetch_tenant_seed(
         campaignEnd=campaign_end,
         campaignDescription=campaign_description,
         themeColor=theme_color,
+        maxStampCount=max_stamp_count,
     )
 
     return TenantSeedResponse(
@@ -784,6 +793,10 @@ async def update_campaign_details(
                 detail=f"Invalid theme color. Allowed values: {', '.join(sorted(ALLOWED_THEME_COLORS))}",
             )
         config["themeColor"] = color
+    if payload.max_stamps is not None:
+        config["maxStampCount"] = payload.max_stamps
+    elif "max_stamps" in payload.__fields_set__:
+        config.pop("maxStampCount", None)
 
     db.execute_query(
         """
@@ -812,6 +825,11 @@ async def update_campaign_details(
         )
         for row in rules_rows
     ]
+    max_stamp_config = config.get("maxStampCount")
+    try:
+        max_stamp_value = int(max_stamp_config)
+    except (TypeError, ValueError):
+        max_stamp_value = None
 
     return TenantConfigModel(
         id=tenant_id,
@@ -824,6 +842,7 @@ async def update_campaign_details(
         campaignEnd=config.get("campaignEnd"),
         campaignDescription=config.get("campaignDescription"),
         themeColor=config.get("themeColor"),
+        maxStampCount=max_stamp_value,
     )
 
 
@@ -855,6 +874,7 @@ async def create_tenant(
         "campaignEnd": None,
         "campaignDescription": None,
         "themeColor": "orange",
+        "maxStampCount": None,
     }
 
     inserted = db.execute_query(

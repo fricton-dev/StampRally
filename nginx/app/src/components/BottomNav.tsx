@@ -49,7 +49,7 @@ export default function BottomNav() {
         },
         {
           to: `${currentTenantPath}/admin/campaign`,
-          label: "キャンペーン設定",
+          label: "キャンペーン",
           icon: SparklesIcon,
           end: true,
         },

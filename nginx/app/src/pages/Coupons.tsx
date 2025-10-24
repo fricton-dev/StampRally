@@ -1,5 +1,6 @@
 import { useState } from "react"
 
+import CouponIcon from "../components/CouponIcon"
 import { useAppStore } from "../lib/store"
 import { useAuthStore } from "../lib/authStore"
 import { markCouponUsed as markCouponUsedApi } from "../lib/api"
@@ -47,19 +48,21 @@ export default function Coupons() {
             <div className="text-sm text-gray-500">使用できるクーポンはまだありません。</div>
           ) : (
             availableCoupons.map((coupon) => (
-              <div
-                key={coupon.id}
-                className="flex items-center justify-between rounded-lg bg-white p-3 shadow-sm"
-              >
-                <div>
-                  <div className="text-sm font-medium text-gray-900">{coupon.title}</div>
-                  {coupon.description && (
-                    <div className="text-xs text-gray-500">{coupon.description}</div>
-                  )}
+              <div key={coupon.id} className="flex items-center justify-between gap-3 rounded-lg bg-white p-3 shadow-sm">
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg border border-orange-100 bg-orange-50">
+                    <CouponIcon icon={coupon.icon} className="h-7 w-7 text-orange-500" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium text-gray-900">{coupon.title}</div>
+                    {coupon.description && (
+                      <div className="text-xs text-gray-500">{coupon.description}</div>
+                    )}
+                  </div>
                 </div>
                 <button
                   type="button"
-                  className="rounded bg-rose-500 px-3 py-1 text-xs font-semibold text-white shadow hover:bg-rose-600"
+                  className="flex-shrink-0 rounded bg-rose-500 px-3 py-1 text-xs font-semibold text-white shadow hover:bg-rose-600"
                   onClick={() => confirmUse(coupon.id)}
                 >
                   使用する
@@ -81,15 +84,20 @@ export default function Coupons() {
             usedCoupons.map((coupon) => (
               <div
                 key={coupon.id}
-                className="flex items-center justify-between rounded-lg bg-white p-3 text-sm text-gray-600 shadow-sm opacity-70"
+                className="flex items-center justify-between gap-3 rounded-lg bg-white p-3 text-sm text-gray-600 shadow-sm opacity-70"
               >
-                <div>
-                  <div className="font-medium text-gray-900">{coupon.title}</div>
-                  {coupon.description && (
-                    <div className="text-xs text-gray-500">{coupon.description}</div>
-                  )}
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-gray-50">
+                    <CouponIcon icon={coupon.icon} className="h-7 w-7 text-gray-400" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="font-medium text-gray-900">{coupon.title}</div>
+                    {coupon.description && (
+                      <div className="text-xs text-gray-500">{coupon.description}</div>
+                    )}
+                  </div>
                 </div>
-                <div className="text-xs text-gray-500">使用済み</div>
+                <div className="flex-shrink-0 text-xs text-gray-500">使用済み</div>
               </div>
             ))
           )}

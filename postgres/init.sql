@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS users (
     username VARCHAR(100) NOT NULL,
     email VARCHAR(255) NOT NULL,
     gender VARCHAR(20),
+    age INTEGER CHECK (age >= 0 AND age <= 120),
     password_hash VARCHAR(255) NOT NULL,
     role VARCHAR(50) DEFAULT 'user',
     is_active BOOLEAN DEFAULT TRUE,
@@ -163,6 +164,7 @@ ALTER TABLE tenants ADD COLUMN IF NOT EXISTS config JSONB DEFAULT '{}'::jsonb;
 
 ALTER TABLE users ALTER COLUMN tenant_id TYPE VARCHAR(32);
 ALTER TABLE users ADD COLUMN IF NOT EXISTS gender VARCHAR(20);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS age INTEGER CHECK (age >= 0 AND age <= 120);
 ALTER TABLE users DROP CONSTRAINT IF EXISTS users_username_key;
 ALTER TABLE users DROP CONSTRAINT IF EXISTS users_email_key;
 ALTER TABLE users ADD CONSTRAINT IF NOT EXISTS users_tenant_username_unique UNIQUE (tenant_id, username);
@@ -198,6 +200,7 @@ BEGIN
                 "tenantName": "TAKIZAWA",
                 "backgroundImageUrl": "https://picsum.photos/seed/takizawa-bg/800/1200",
                 "initialStamps": 1,
+                "maxStampCount": 12,
                 "initialCoupons": [
                     {
                         "id": "takizawa-welcome",
@@ -222,6 +225,7 @@ BEGIN
                 "tenantName": "MORIOKA STREET",
                 "backgroundImageUrl": "https://picsum.photos/seed/morioka-bg/800/1200",
                 "initialStamps": 1,
+                "maxStampCount": 15,
                 "initialCoupons": [
                     {
                         "id": "morioka-first",
@@ -246,6 +250,7 @@ BEGIN
                 "tenantName": "FRICTON",
                 "backgroundImageUrl": "https://picsum.photos/seed/fricton-bg/800/1200",
                 "initialStamps": 0,
+                "maxStampCount": 20,
                 "initialCoupons": []
             }'::jsonb,
             TRUE
@@ -287,11 +292,11 @@ ON CONFLICT (tenant_id, store_id) DO UPDATE
         description = EXCLUDED.description,
         image_url = EXCLUDED.image_url;
 
-INSERT INTO users (tenant_id, username, email, gender, password_hash, role, is_active)
+INSERT INTO users (tenant_id, username, email, gender, age, password_hash, role, is_active)
 VALUES
-    ('takizawa', 'demo-user', 'demo@takizawa.local', 'unspecified', '$bcrypt-sha256$v=2,t=2b,r=12$Ig8wlBQaJ7/7M37EZ1SRMe$0tcEc7YLy5r0EWeMOYg8MXWcSquTEBW', 'user', TRUE),
-    ('morioka', 'demo-user', 'demo@morioka.local', 'unspecified', '$bcrypt-sha256$v=2,t=2b,r=12$Ig8wlBQaJ7/7M37EZ1SRMe$0tcEc7YLy5r0EWeMOYg8MXWcSquTEBW', 'user', TRUE),
-    ('takizawa', 'admin', 'admin@takizawa.local', 'unspecified', '$bcrypt-sha256$v=2,t=2b,r=12$Ig8wlBQaJ7/7M37EZ1SRMe$0tcEc7YLy5r0EWeMOYg8MXWcSquTEBW', 'admin', TRUE)
+    ('takizawa', 'demo-user', 'demo@takizawa.local', 'female', 28, '$bcrypt-sha256$v=2,t=2b,r=12$Ig8wlBQaJ7/7M37EZ1SRMe$0tcEc7YLy5r0EWeMOYg8MXWcSquTEBW', 'user', TRUE),
+    ('morioka', 'demo-user', 'demo@morioka.local', 'male', 32, '$bcrypt-sha256$v=2,t=2b,r=12$Ig8wlBQaJ7/7M37EZ1SRMe$0tcEc7YLy5r0EWeMOYg8MXWcSquTEBW', 'user', TRUE),
+    ('takizawa', 'admin', 'admin@takizawa.local', 'other', 35, '$bcrypt-sha256$v=2,t=2b,r=12$Ig8wlBQaJ7/7M37EZ1SRMe$0tcEc7YLy5r0EWeMOYg8MXWcSquTEBW', 'admin', TRUE)
 ON CONFLICT (tenant_id, username) DO NOTHING;
 
 INSERT INTO user_progress (user_id, tenant_id, stamps)

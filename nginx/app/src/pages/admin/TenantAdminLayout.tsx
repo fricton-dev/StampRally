@@ -13,6 +13,15 @@ import { TenantAdminContext, type TenantAdminContextValue } from "./TenantAdminC
 
 type Status = "checking" | "loading" | "ready" | "error"
 
+const TEXT = {
+  missingTenantId: "URLにテナントIDが含まれていません。アドレスをご確認ください。",
+  verifyingSession: "管理者ログイン状態を確認しています…",
+  loadingTenant: "テナント情報を読み込んでいます…",
+  loadFailed: "テナント情報の読み込みに失敗しました。再度お試しください。",
+  retry: "再試行",
+  backToLogin: "管理者ログインへ戻る",
+} as const
+
 export default function TenantAdminLayout(): ReactNode {
   const { tenantId } = useParams<{ tenantId: string }>()
   const navigate = useNavigate()
@@ -24,7 +33,7 @@ export default function TenantAdminLayout(): ReactNode {
 
   useEffect(() => {
     if (!tenantId) {
-      setError("URLにテナントIDが含まれていません。アドレスを確認してください。")
+      setError(TEXT.missingTenantId)
       setStatus("error")
       return
     }
@@ -42,7 +51,7 @@ export default function TenantAdminLayout(): ReactNode {
 
   const loadSeed = useCallback(async () => {
     if (!tenantId) {
-      throw new Error("URLにテナントIDが含まれていません。")
+      throw new Error(TEXT.missingTenantId)
     }
     const result = await fetchTenantSeed(tenantId)
     setSeed(result)
@@ -64,7 +73,7 @@ export default function TenantAdminLayout(): ReactNode {
       })
       .catch((err) => {
         if (cancelled) return
-        const message = err instanceof Error ? err.message : "テナント情報の読み込みに失敗しました。"
+        const message = err instanceof Error ? err.message : TEXT.loadFailed
         setError(message)
         setStatus("error")
       })
@@ -91,7 +100,7 @@ export default function TenantAdminLayout(): ReactNode {
   if (!tenantId) {
     return (
       <div className="mx-auto max-w-md p-6 text-sm text-red-600">
-        URLにテナントIDが含まれていません。アドレスを確認してください。
+        {TEXT.missingTenantId}
       </div>
     )
   }
@@ -99,7 +108,7 @@ export default function TenantAdminLayout(): ReactNode {
   if (!session) {
     return (
       <div className="mx-auto max-w-md p-6 text-sm text-gray-600">
-        管理者ログインページへリダイレクトしています…
+        {TEXT.verifyingSession}
       </div>
     )
   }
@@ -107,7 +116,7 @@ export default function TenantAdminLayout(): ReactNode {
   if (status === "loading" || status === "checking" || !contextValue) {
     return (
       <div className="mx-auto max-w-md p-6 text-sm text-gray-600">
-        テナント情報を読み込み中です…
+        {TEXT.loadingTenant}
       </div>
     )
   }
@@ -115,21 +124,21 @@ export default function TenantAdminLayout(): ReactNode {
   if (status === "error" || !seed) {
     return (
       <div className="mx-auto max-w-md space-y-4 p-6 text-sm text-red-600">
-        <p>{error ?? "テナント情報の読み込みに失敗しました。再度ログインしてください。"} </p>
+        <p>{error ?? TEXT.loadFailed}</p>
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
             className="rounded bg-orange-500 px-4 py-2 text-xs font-semibold text-white shadow hover:bg-orange-600"
             onClick={() => setStatus("loading")}
           >
-            再試行
+            {TEXT.retry}
           </button>
           <button
             type="button"
             className="rounded bg-gray-200 px-4 py-2 text-xs font-semibold text-gray-700 shadow hover:bg-gray-300"
             onClick={() => navigate(`/tenant/${tenantId}/auth/admin`, { replace: true })}
           >
-            管理者ログインへ戻る
+            {TEXT.backToLogin}
           </button>
         </div>
       </div>
