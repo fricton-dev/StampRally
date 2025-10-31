@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     APP_NAME: str = "stamprally-app"
     DEBUG: bool = False
     CORS_ORIGINS: str = "http://localhost:8080"
+    DEFAULT_TIMEZONE: Optional[str] = None
 
     # Tenant (optional)
     DEFAULT_TENANT_ID: Optional[str] = None

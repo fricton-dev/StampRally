@@ -1,6 +1,8 @@
 export type TenantId = string
 
 export type ThemeColor = "orange" | "teal" | "green" | "pink"
+export type CouponUsageMode = "campaign" | "custom"
+export type AppLanguage = "ja" | "en" | "zh"
 
 export type Store = {
   id: string
@@ -39,8 +41,13 @@ export type TenantConfig = {
   campaignStart?: string
   campaignEnd?: string
   campaignDescription?: string
+  campaignTimezone?: string
+  couponUsageMode?: CouponUsageMode
+  couponUsageStart?: string
+  couponUsageEnd?: string
   themeColor?: ThemeColor
   maxStampCount?: number | null
+  language?: AppLanguage
 }
 
 export type UserProgress = {

@@ -2,26 +2,87 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import * as L from "leaflet"
 import "leaflet/dist/leaflet.css"
 
-import { nearestUnstamped, storesWithDistance } from "../lib/geo"
+import { storesWithDistance } from "../lib/geo"
 import { useAppStore } from "../lib/store"
-import type { Store } from "../types"
+import { useLanguage } from "../lib/i18n"
+import type { AppLanguage, Store } from "../types"
 
-type SortMode = "unstamped-first" | "stamped-first"
+type FilterMode = "all" | "unstamped" | "stamped"
 
 const DEFAULT_CENTER: L.LatLngExpression = [35.681236, 139.767125]
 
-const TEXT = {
-  nearestTitle: "\u6700\u5bc4\u308a\u306e\u304a\u5e97",
-  listTitle: "\u5e97\u8217\u4e00\u89a7",
-  sortUnstamped: "\u672a\u9054\u6210",
-  sortStamped: "\u9054\u6210\u6e08\u307f",
-  badgeUnstamped: "\u672a\u9054\u6210",
-  badgeStamped: "\u9054\u6210\u6e08\u307f",
-  distanceUnknown: "\u8ddd\u96e2\u60c5\u5831\u306a\u3057",
-  nearestEmpty:
-    "\u73fe\u5728\u5730\u60c5\u5831\u304c\u53d6\u5f97\u3067\u304d\u306a\u3044\u304b\u3001\u672a\u9054\u6210\u306e\u5e97\u8217\u304c\u8fd1\u304f\u306b\u3042\u308a\u307e\u305b\u3093\u3002",
-  listEmpty: "\u8868\u793a\u3067\u304d\u308b\u5e97\u8217\u304c\u3042\u308a\u307e\u305b\u3093\u3002",
-} as const
+const TEXT_MAP: Record<
+  AppLanguage,
+  {
+    nearestTitle: string
+    listTitle: string
+    filterAll: string
+    filterUnstamped: string
+    filterStamped: string
+    badgeUnstamped: string
+    badgeStamped: string
+    distanceUnknown: string
+    nearestEmptyNoLocation: string
+    nearestEmptyAll: string
+    nearestEmptyUnstamped: string
+    nearestEmptyStamped: string
+    listEmptyAll: string
+    listEmptyUnstamped: string
+    listEmptyStamped: string
+  }
+> = {
+  ja: {
+    nearestTitle: "最寄りのお店",
+    listTitle: "店舗一覧",
+    filterAll: "すべて",
+    filterUnstamped: "未達成",
+    filterStamped: "達成済み",
+    badgeUnstamped: "未達成",
+    badgeStamped: "達成済み",
+    distanceUnknown: "距離情報なし",
+    nearestEmptyNoLocation: "現在地情報を取得できませんでした。",
+    nearestEmptyAll: "現在表示できる店舗はありません。",
+    nearestEmptyUnstamped: "未達成の店舗はありません。",
+    nearestEmptyStamped: "達成済みの店舗はまだありません。",
+    listEmptyAll: "表示できる店舗がありません。",
+    listEmptyUnstamped: "未達成の店舗はありません。",
+    listEmptyStamped: "達成済みの店舗はまだありません。",
+  },
+  en: {
+    nearestTitle: "Nearest Store",
+    listTitle: "Store List",
+    filterAll: "All",
+    filterUnstamped: "Not stamped",
+    filterStamped: "Stamped",
+    badgeUnstamped: "Not stamped",
+    badgeStamped: "Stamped",
+    distanceUnknown: "Distance unknown",
+    nearestEmptyNoLocation: "Unable to determine your location.",
+    nearestEmptyAll: "No stores available to display.",
+    nearestEmptyUnstamped: "No unstamped stores available.",
+    nearestEmptyStamped: "No stamped stores yet.",
+    listEmptyAll: "No stores available.",
+    listEmptyUnstamped: "No unstamped stores available.",
+    listEmptyStamped: "No stamped stores yet.",
+  },
+  zh: {
+    nearestTitle: "附近的店铺",
+    listTitle: "店铺列表",
+    filterAll: "全部",
+    filterUnstamped: "未盖章",
+    filterStamped: "已盖章",
+    badgeUnstamped: "未盖章",
+    badgeStamped: "已盖章",
+    distanceUnknown: "距离未知",
+    nearestEmptyNoLocation: "无法获取您的位置信息。",
+    nearestEmptyAll: "目前没有可显示的店铺。",
+    nearestEmptyUnstamped: "没有未盖章的店铺。",
+    nearestEmptyStamped: "还没有已盖章的店铺。",
+    listEmptyAll: "没有可显示的店铺。",
+    listEmptyUnstamped: "没有未盖章的店铺。",
+    listEmptyStamped: "还没有已盖章的店铺。",
+  },
+}
 
 const formatDistance = (meters: number | null | undefined) => {
   if (meters == null || !Number.isFinite(meters)) {
@@ -41,7 +102,7 @@ type StoreWithMaybeDistance = {
   distance: number | null
 }
 
-const markerHtml = (color: string) =>
+const markerHtml = (color: string, withCheck = false) =>
   `<span style="
     display:inline-flex;
     align-items:center;
@@ -52,7 +113,10 @@ const markerHtml = (color: string) =>
     background:${color};
     border:3px solid #ffffff;
     box-shadow:0 4px 10px rgba(0,0,0,0.3);
-  "></span>`
+    font-size:14px;
+    font-weight:700;
+    color:${withCheck ? "#ffffff" : "transparent"};
+  ">${withCheck ? "&#10003;" : ""}</span>`
 
 const userMarkerHtml =
   `<span style="
@@ -69,7 +133,9 @@ const userMarkerHtml =
 
 export default function MapPage() {
   const stores = useAppStore((state) => state.stores)
-  const [sortMode, setSortMode] = useState<SortMode>("unstamped-first")
+  const language = useLanguage()
+  const TEXT = TEXT_MAP[language]
+  const [filterMode, setFilterMode] = useState<FilterMode>("all")
   const [position, setPosition] = useState<{ lat: number; lng: number } | null>(null)
 
   const mapRef = useRef<L.Map | null>(null)
@@ -81,7 +147,7 @@ export default function MapPage() {
     () =>
       L.divIcon({
         className: "stamped-marker",
-        html: markerHtml("#9ca3af"),
+        html: markerHtml("#9ca3af", true),
         iconSize: [28, 28],
         iconAnchor: [14, 24],
         popupAnchor: [0, -20],
@@ -183,13 +249,6 @@ export default function MapPage() {
     )
   }, [userIcon])
 
-  const nearest = useMemo(() => {
-    if (!position) {
-      return null
-    }
-    return nearestUnstamped(position, stores)
-  }, [position, stores])
-
   const storesWithDistances = useMemo(() => {
     if (!position) {
       return null
@@ -197,19 +256,22 @@ export default function MapPage() {
     return storesWithDistance(position, stores)
   }, [position, stores])
 
-  const sortedStores = useMemo(() => {
+  const filteredStores = useMemo(() => {
     const base: StoreWithMaybeDistance[] = storesWithDistances
       ? storesWithDistances.map((item) => ({ store: item.store, distance: item.distance }))
       : stores.map((store) => ({ store, distance: null }))
 
-    const multiplier = sortMode === "unstamped-first" ? 1 : -1
-
-    return base.sort((a, b) => {
-      const aStamped = Boolean(a.store.hasStamped)
-      const bStamped = Boolean(b.store.hasStamped)
-      if (aStamped !== bStamped) {
-        return aStamped ? multiplier : -multiplier
+    const filtered = base.filter(({ store }) => {
+      if (filterMode === "stamped") {
+        return Boolean(store.hasStamped)
       }
+      if (filterMode === "unstamped") {
+        return !store.hasStamped
+      }
+      return true
+    })
+
+    return filtered.sort((a, b) => {
       if (a.distance !== null && b.distance !== null) {
         return a.distance - b.distance
       }
@@ -217,15 +279,37 @@ export default function MapPage() {
       if (b.distance !== null) return 1
       return a.store.name.localeCompare(b.store.name)
     })
-  }, [storesWithDistances, stores, sortMode])
+  }, [storesWithDistances, stores, filterMode])
+
+  const nearest = filteredStores.length > 0 ? filteredStores[0] : null
+
+  const nearestEmptyMessage = useMemo(() => {
+    if (!position) {
+      return TEXT.nearestEmptyNoLocation
+    }
+    if (filterMode === "stamped") {
+      return TEXT.nearestEmptyStamped
+    }
+    if (filterMode === "unstamped") {
+      return TEXT.nearestEmptyUnstamped
+    }
+    return TEXT.nearestEmptyAll
+  }, [filterMode, position])
+
+  const listEmptyMessage =
+    filterMode === "stamped"
+      ? TEXT.listEmptyStamped
+      : filterMode === "unstamped"
+        ? TEXT.listEmptyUnstamped
+        : TEXT.listEmptyAll
 
   const renderStatusBadge = (stamped?: boolean) =>
     stamped ? (
-      <span className="inline-flex items-center rounded-full bg-gray-200 px-3 py-1 text-xs font-semibold text-gray-600">
+      <span className="inline-flex flex-shrink-0 items-center whitespace-nowrap rounded-full bg-gray-200 px-3 py-1 text-xs font-semibold text-gray-600">
         {TEXT.badgeStamped}
       </span>
     ) : (
-      <span className="inline-flex items-center rounded-full bg-orange-100 px-3 py-1 text-xs font-semibold text-orange-600">
+      <span className="inline-flex flex-shrink-0 items-center whitespace-nowrap rounded-full bg-orange-100 px-3 py-1 text-xs font-semibold text-orange-600">
         {TEXT.badgeUnstamped}
       </span>
     )
@@ -265,7 +349,7 @@ export default function MapPage() {
               </div>
             </div>
           ) : (
-            <p className="text-sm text-gray-500">{TEXT.nearestEmpty}</p>
+            <p className="text-sm text-gray-500">{nearestEmptyMessage}</p>
           )}
         </div>
       </div>
@@ -279,29 +363,40 @@ export default function MapPage() {
             <button
               type="button"
               className={`flex-1 rounded-full border px-3 py-2 text-sm font-semibold transition ${
-                sortMode === "unstamped-first"
+                filterMode === "all"
                   ? "border-orange-500 bg-orange-500 text-white shadow"
                   : "border-gray-200 bg-white text-gray-600 hover:border-orange-300 hover:text-orange-600"
               }`}
-              onClick={() => setSortMode("unstamped-first")}
+              onClick={() => setFilterMode("all")}
             >
-              {TEXT.sortUnstamped}
+              {TEXT.filterAll}
             </button>
             <button
               type="button"
               className={`flex-1 rounded-full border px-3 py-2 text-sm font-semibold transition ${
-                sortMode === "stamped-first"
+                filterMode === "unstamped"
                   ? "border-orange-500 bg-orange-500 text-white shadow"
                   : "border-gray-200 bg-white text-gray-600 hover:border-orange-300 hover:text-orange-600"
               }`}
-              onClick={() => setSortMode("stamped-first")}
+              onClick={() => setFilterMode((current) => (current === "unstamped" ? "all" : "unstamped"))}
             >
-              {TEXT.sortStamped}
+              {TEXT.filterUnstamped}
+            </button>
+            <button
+              type="button"
+              className={`flex-1 rounded-full border px-3 py-2 text-sm font-semibold transition ${
+                filterMode === "stamped"
+                  ? "border-orange-500 bg-orange-500 text-white shadow"
+                  : "border-gray-200 bg-white text-gray-600 hover:border-orange-300 hover:text-orange-600"
+              }`}
+              onClick={() => setFilterMode((current) => (current === "stamped" ? "all" : "stamped"))}
+            >
+              {TEXT.filterStamped}
             </button>
           </div>
 
           <div className="space-y-3">
-            {sortedStores.map(({ store, distance }) => (
+            {filteredStores.map(({ store, distance }) => (
               <div key={store.id} className="flex items-center justify-between rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
                 <div className="flex min-w-0 items-center gap-3">
                   {store.imageUrl ? (
@@ -323,8 +418,8 @@ export default function MapPage() {
                 {renderStatusBadge(store.hasStamped)}
               </div>
             ))}
-            {sortedStores.length === 0 && (
-              <p className="text-sm text-gray-500">{TEXT.listEmpty}</p>
+            {filteredStores.length === 0 && (
+              <p className="text-sm text-gray-500">{listEmptyMessage}</p>
             )}
           </div>
         </div>

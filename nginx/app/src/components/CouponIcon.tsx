@@ -3,6 +3,7 @@ import { GiftIcon, TicketIcon, TrophyIcon } from "@heroicons/react/24/solid"
 type CouponIconProps = {
   icon?: string
   className?: string
+  fillImage?: boolean
 }
 
 const ICON_MAP: Record<string, typeof GiftIcon> = {
@@ -14,15 +15,11 @@ const ICON_MAP: Record<string, typeof GiftIcon> = {
 const isImageSource = (value?: string) =>
   Boolean(value && (/^(https?:\/\/|data:|\/)/i.test(value) || value.includes(".")))
 
-export default function CouponIcon({ icon, className }: CouponIconProps) {
+export default function CouponIcon({ icon, className, fillImage = false }: CouponIconProps) {
   if (isImageSource(icon)) {
-    return (
-      <img
-        src={icon}
-        alt="coupon icon"
-        className={className ? `${className} object-contain` : "h-6 w-6 object-contain"}
-      />
-    )
+    const imageBase = fillImage ? "h-full w-full object-cover" : "h-6 w-6 object-contain"
+    const composed = className ? `${imageBase} ${className}` : imageBase
+    return <img src={icon} alt="coupon icon" className={composed} />
   }
 
   const IconComponent = icon ? ICON_MAP[icon.toLowerCase()] : undefined

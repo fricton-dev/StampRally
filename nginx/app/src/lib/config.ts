@@ -25,3 +25,7 @@ export const DEFAULT_TENANT_ID =
 export const AUTH_TOKEN_STORAGE_KEY = "stamprally.auth.token"
 export const TENANT_TOKEN_STORAGE_KEY = "stamprally.tenant.token"
 export const TENANT_TOKEN_INFO_KEY = "stamprally.tenant.info"
+
+// Common accept attribute for image uploads (keeps HEIC/HEIF selectable across browsers).
+export const ACCEPTED_IMAGE_TYPES =
+  "image/png,image/jpeg,image/gif,image/webp,image/heic,image/heif,image/heic-sequence,image/heif-sequence,.png,.jpg,.jpeg,.gif,.webp,.heic,.heif"

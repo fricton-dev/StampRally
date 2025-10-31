@@ -1,11 +1,21 @@
 import { useEffect, useRef, useState } from "react" // [React]
 import { Html5Qrcode } from "html5-qrcode" // QR ライブラリ
+import { useLanguage } from "../lib/i18n"
+import type { AppLanguage } from "../types"
 
 type Props = {
   onText: (text: string) => void
 }
 
+const LABELS: Record<AppLanguage, { errorPrefix: string; retry: string }> = {
+  ja: { errorPrefix: "カメラを開始できません: ", retry: "再試行" },
+  en: { errorPrefix: "Cannot start camera: ", retry: "Retry" },
+  zh: { errorPrefix: "无法启动相机：", retry: "重试" },
+}
+
 export default function QRScanner({ onText }: Props) {
+  const language = useLanguage()
+  const labels = LABELS[language]
   const divId = useRef(`qr-${Math.random().toString(36).slice(2)}`) // [JS] ランダムID
   const qr = useRef<Html5Qrcode | null>(null)                      // [TS] useRef<型>
   const startedRef = useRef(false)
@@ -76,8 +86,8 @@ export default function QRScanner({ onText }: Props) {
   <div id={divId.current} className="w-[280px] h-[280px] rounded overflow-hidden z-0" />
         {error && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 p-3 text-center">
-            <div className="text-sm text-red-600 mb-2">カメラを開始できません: {error}</div>
-            <button className="px-3 py-1 bg-blue-600 text-white rounded" onClick={handleRetry}>再試行</button>
+            <div className="text-sm text-red-600 mb-2">{labels.errorPrefix}{error}</div>
+            <button className="px-3 py-1 bg-blue-600 text-white rounded" onClick={handleRetry}>{labels.retry}</button>
           </div>
         )}
       </div>

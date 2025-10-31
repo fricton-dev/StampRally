@@ -2,8 +2,9 @@ import json
 import logging
 import re
 import secrets
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from typing import Any, Dict, List, Optional
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Security, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -76,8 +77,13 @@ class TenantConfigModel(BaseModel):
     campaignStart: Optional[str] = None
     campaignEnd: Optional[str] = None
     campaignDescription: Optional[str] = None
+    campaignTimezone: Optional[str] = None
+    couponUsageMode: Optional[str] = None
+    couponUsageStart: Optional[str] = None
+    couponUsageEnd: Optional[str] = None
     themeColor: Optional[str] = None
     maxStampCount: Optional[int] = None
+    language: Optional[str] = None
 
 
 class TenantProgressSeed(BaseModel):
@@ -160,11 +166,103 @@ class CampaignUpdateRequest(BaseModel):
     background_image_url: Optional[str] = None
     stamp_image_url: Optional[str] = None
     theme_color: Optional[str] = None
+    campaign_timezone: Optional[str] = None
+    language: Optional[str] = None
+    coupon_usage_mode: Optional[str] = None
+    coupon_usage_start: Optional[str] = None
+    coupon_usage_end: Optional[str] = None
     max_stamps: Optional[int] = Field(default=None, ge=1, le=200)
 
 
 bearer_scheme = HTTPBearer(auto_error=False)
 ALLOWED_THEME_COLORS = {"orange", "teal", "green", "pink"}
+ALLOWED_COUPON_USAGE_MODES = {"campaign", "custom"}
+ALLOWED_LANGUAGES = {"ja", "en", "zh"}
+_UTC_OFFSET_PATTERN = re.compile(r"^UTC([+-])(?:(\d{1,2})(?::([0-5]\d))?)$")
+_UTC_OFFSET_FALLBACK = "UTC+09:00"
+DEFAULT_LANGUAGE = "ja"
+
+
+def _format_offset(delta: timedelta) -> Optional[str]:
+    total_seconds = int(delta.total_seconds())
+    if total_seconds % 60 != 0:
+        return None
+    total_minutes = total_seconds // 60
+    if total_minutes < -14 * 60 or total_minutes > 14 * 60:
+        return None
+    sign = "+" if total_minutes >= 0 else "-"
+    total_minutes = abs(total_minutes)
+    hours, minutes = divmod(total_minutes, 60)
+    if hours == 14 and minutes != 0:
+        return None
+    return f"UTC{sign}{hours:02d}:{minutes:02d}"
+
+
+def _coerce_timezone_to_offset(value: Optional[str]) -> Optional[str]:
+    if value is None:
+        return None
+    text = value.strip()
+    if not text:
+        return None
+    match = _UTC_OFFSET_PATTERN.fullmatch(text)
+    if match:
+        sign, hours_text, minutes_text = match.groups()
+        hours = int(hours_text)
+        minutes = int(minutes_text or "00")
+        if hours > 14 or (hours == 14 and minutes != 0):
+            return None
+        return f"UTC{sign}{hours:02d}:{minutes:02d}"
+    try:
+        tz = ZoneInfo(text)
+    except Exception:
+        return None
+    offset = datetime.now(tz).utcoffset()
+    if offset is None:
+        return None
+    return _format_offset(offset)
+
+
+def _resolve_default_campaign_timezone() -> str:
+    env_value = getattr(settings, "DEFAULT_TIMEZONE", None)
+    normalized = _coerce_timezone_to_offset(env_value)
+    return normalized or _UTC_OFFSET_FALLBACK
+
+
+DEFAULT_CAMPAIGN_TIMEZONE = _resolve_default_campaign_timezone()
+
+
+def _normalize_campaign_timezone(value: Optional[str]) -> str:
+    normalized = _coerce_timezone_to_offset(value)
+    return normalized or DEFAULT_CAMPAIGN_TIMEZONE
+
+
+def _validate_campaign_timezone(value: str) -> str:
+    normalized = _coerce_timezone_to_offset(value)
+    if not normalized:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid campaign timezone. Use format 'UTC±HH:MM' within -12:00 to +14:00.",
+        )
+    return normalized
+
+
+def _normalize_language(value: Optional[str]) -> str:
+    if not value:
+        return DEFAULT_LANGUAGE
+    code = value.strip().lower()
+    return code if code in ALLOWED_LANGUAGES else DEFAULT_LANGUAGE
+
+
+def _validate_language(value: str) -> str:
+    code = value.strip().lower()
+    if not code:
+        return DEFAULT_LANGUAGE
+    if code not in ALLOWED_LANGUAGES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid language. Allowed values: {', '.join(sorted(ALLOWED_LANGUAGES))}",
+        )
+    return code
 
 
 def get_current_tenant_admin(
@@ -292,7 +390,19 @@ async def fetch_tenant_seed(
     campaign_start = config.get("campaignStart")
     campaign_end = config.get("campaignEnd")
     campaign_description = config.get("campaignDescription")
+    campaign_timezone = _normalize_campaign_timezone(
+        config.get("campaignTimezone") or config.get("campaign_timezone")
+    )
+    language = _normalize_language(config.get("language"))
     stamp_mark = config.get("stampMark")
+    coupon_usage_mode = (config.get("couponUsageMode") or "campaign").lower()
+    if coupon_usage_mode not in ALLOWED_COUPON_USAGE_MODES:
+        coupon_usage_mode = "campaign"
+    coupon_usage_start = config.get("couponUsageStart")
+    coupon_usage_end = config.get("couponUsageEnd")
+    if coupon_usage_mode != "custom":
+        coupon_usage_start = None
+        coupon_usage_end = None
     theme_color = config.get("themeColor") or "orange"
     max_stamp_raw = config.get("maxStampCount")
     try:
@@ -371,8 +481,13 @@ async def fetch_tenant_seed(
         campaignStart=campaign_start,
         campaignEnd=campaign_end,
         campaignDescription=campaign_description,
+        campaignTimezone=campaign_timezone,
+        couponUsageMode=coupon_usage_mode,
+        couponUsageStart=coupon_usage_start,
+        couponUsageEnd=coupon_usage_end,
         themeColor=theme_color,
         maxStampCount=max_stamp_count,
+        language=language,
     )
 
     return TenantSeedResponse(
@@ -793,10 +908,50 @@ async def update_campaign_details(
                 detail=f"Invalid theme color. Allowed values: {', '.join(sorted(ALLOWED_THEME_COLORS))}",
             )
         config["themeColor"] = color
+    if payload.campaign_timezone is not None:
+        tz_value = payload.campaign_timezone.strip()
+        if tz_value:
+            config["campaignTimezone"] = _validate_campaign_timezone(tz_value)
+        else:
+            config["campaignTimezone"] = DEFAULT_CAMPAIGN_TIMEZONE
+    if payload.language is not None:
+        lang_value = payload.language.strip()
+        if lang_value:
+            config["language"] = _validate_language(lang_value)
+        else:
+            config["language"] = DEFAULT_LANGUAGE
+    if payload.coupon_usage_mode is not None:
+        mode_value = payload.coupon_usage_mode.strip().lower()
+        if mode_value not in ALLOWED_COUPON_USAGE_MODES:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid coupon usage mode. Allowed values: {', '.join(sorted(ALLOWED_COUPON_USAGE_MODES))}",
+            )
+        config["couponUsageMode"] = mode_value
+        if mode_value != "custom":
+            config.pop("couponUsageStart", None)
+            config.pop("couponUsageEnd", None)
+    if payload.coupon_usage_start is not None:
+        config["couponUsageStart"] = payload.coupon_usage_start or None
+    if payload.coupon_usage_end is not None:
+        config["couponUsageEnd"] = payload.coupon_usage_end or None
     if payload.max_stamps is not None:
         config["maxStampCount"] = payload.max_stamps
     elif "max_stamps" in payload.__fields_set__:
         config.pop("maxStampCount", None)
+
+    campaign_timezone = _normalize_campaign_timezone(
+        config.get("campaignTimezone") or config.get("campaign_timezone")
+    )
+    language = _normalize_language(config.get("language"))
+
+    coupon_usage_mode = (config.get("couponUsageMode") or "campaign").lower()
+    if coupon_usage_mode not in ALLOWED_COUPON_USAGE_MODES:
+        coupon_usage_mode = "campaign"
+    config["campaignTimezone"] = campaign_timezone
+    config["language"] = language
+    coupon_usage_start = config.get("couponUsageStart") if coupon_usage_mode == "custom" else None
+    coupon_usage_end = config.get("couponUsageEnd") if coupon_usage_mode == "custom" else None
 
     db.execute_query(
         """
@@ -841,8 +996,13 @@ async def update_campaign_details(
         campaignStart=config.get("campaignStart"),
         campaignEnd=config.get("campaignEnd"),
         campaignDescription=config.get("campaignDescription"),
+        campaignTimezone=campaign_timezone,
+        couponUsageMode=coupon_usage_mode,
+        couponUsageStart=coupon_usage_start,
+        couponUsageEnd=coupon_usage_end,
         themeColor=config.get("themeColor"),
         maxStampCount=max_stamp_value,
+        language=language,
     )
 
 
@@ -873,8 +1033,13 @@ async def create_tenant(
         "campaignStart": None,
         "campaignEnd": None,
         "campaignDescription": None,
+        "campaignTimezone": DEFAULT_CAMPAIGN_TIMEZONE,
+        "couponUsageMode": "campaign",
+        "couponUsageStart": None,
+        "couponUsageEnd": None,
         "themeColor": "orange",
         "maxStampCount": None,
+        "language": DEFAULT_LANGUAGE,
     }
 
     inserted = db.execute_query(

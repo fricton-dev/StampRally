@@ -1,7 +1,7 @@
-import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react"
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Outlet, useNavigate, useParams } from "react-router-dom"
 
-import { fetchTenantSeed } from "../../lib/api"
+import { fetchTenantSeed, updateTenantCampaign } from "../../lib/api"
 import {
   clearTenantSession,
   readTenantSession,
@@ -22,6 +22,30 @@ const TEXT = {
   backToLogin: "管理者ログインへ戻る",
 } as const
 
+const DEFAULT_TIMEZONE_FALLBACK = "UTC+09:00"
+
+const detectDeviceTimezoneOffset = (): string | null => {
+  if (typeof window === "undefined") {
+    return null
+  }
+  try {
+    const offsetMinutes = -new Date().getTimezoneOffset()
+    if (!Number.isFinite(offsetMinutes)) {
+      return null
+    }
+    const sign = offsetMinutes >= 0 ? "+" : "-"
+    const absolute = Math.abs(offsetMinutes)
+    const hours = Math.floor(absolute / 60)
+    const minutes = absolute % 60
+    if (hours > 14 || (hours === 14 && minutes !== 0)) {
+      return null
+    }
+    return `UTC${sign}${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`
+  } catch {
+    return null
+  }
+}
+
 export default function TenantAdminLayout(): ReactNode {
   const { tenantId } = useParams<{ tenantId: string }>()
   const navigate = useNavigate()
@@ -30,6 +54,11 @@ export default function TenantAdminLayout(): ReactNode {
   const [status, setStatus] = useState<Status>("checking")
   const [error, setError] = useState<string | null>(null)
   const setGlobalTenant = useAppStore((state) => state.setTenantSeed)
+  const timezoneSyncRef = useRef<{
+    lastAttempt?: string
+    lastApplied?: string
+    inFlight?: boolean
+  }>({})
 
   useEffect(() => {
     if (!tenantId) {
@@ -84,6 +113,72 @@ export default function TenantAdminLayout(): ReactNode {
   }, [status, session, loadSeed])
 
   const refreshSeed = useCallback(async () => loadSeed(), [loadSeed])
+
+  useEffect(() => {
+    if (!tenantId || !session?.accessToken || !seed) {
+      return
+    }
+    const deviceTimezone = detectDeviceTimezoneOffset()
+    if (!deviceTimezone) {
+      return
+    }
+    const currentTimezone = seed.tenant.campaignTimezone ?? DEFAULT_TIMEZONE_FALLBACK
+
+    if (
+      timezoneSyncRef.current.lastAttempt === deviceTimezone &&
+      timezoneSyncRef.current.lastApplied === currentTimezone
+    ) {
+      return
+    }
+
+    if (currentTimezone === deviceTimezone) {
+      timezoneSyncRef.current = {
+        lastAttempt: deviceTimezone,
+        lastApplied: currentTimezone,
+        inFlight: false,
+      }
+      return
+    }
+
+    if (timezoneSyncRef.current.inFlight || timezoneSyncRef.current.lastAttempt === deviceTimezone) {
+      return
+    }
+
+    timezoneSyncRef.current = {
+      lastAttempt: deviceTimezone,
+      lastApplied: currentTimezone,
+      inFlight: true,
+    }
+
+    let cancelled = false
+
+    updateTenantCampaign(session.accessToken, tenantId, {
+      campaignTimezone: deviceTimezone,
+    })
+      .then(() => {
+        if (cancelled) return
+        timezoneSyncRef.current = {
+          lastAttempt: deviceTimezone,
+          lastApplied: deviceTimezone,
+          inFlight: false,
+        }
+        return refreshSeed()
+      })
+      .catch((err) => {
+        if (cancelled) return
+        console.warn("Failed to synchronize campaign timezone automatically", err)
+        timezoneSyncRef.current = {
+          lastAttempt: deviceTimezone,
+          lastApplied: currentTimezone,
+          inFlight: false,
+        }
+      })
+
+    return () => {
+      cancelled = true
+      timezoneSyncRef.current.inFlight = false
+    }
+  }, [tenantId, session?.accessToken, seed, refreshSeed])
 
   const contextValue = useMemo<TenantAdminContextValue | null>(() => {
     if (!tenantId || !session || !seed) {

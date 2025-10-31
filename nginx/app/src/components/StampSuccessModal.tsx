@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react"
+import { useLanguage } from "../lib/i18n"
+import type { AppLanguage } from "../types"
 
 type StampSuccessModalProps = {
   open: boolean
@@ -9,16 +11,46 @@ type StampSuccessModalProps = {
   onClose: () => void
 }
 
-const TEXT = {
-  closeLabel: "\u9589\u3058\u308b",
-  storePhotoSuffix: "\u0020\u306e\u5199\u771f",
-  noImage: "\u5e97\u8217\u753b\u50cf\u304c\u3042\u308a\u307e\u305b\u3093",
-  stampAlt: "\u30b9\u30bf\u30f3\u30d7\u753b\u50cf",
-  headline: "\u30b9\u30bf\u30f3\u30d7GET!",
-  message:
-    "\u304a\u3081\u3067\u3068\u3046\u3054\u3056\u3044\u307e\u3059\uff01\u3053\u306e\u5e97\u8217\u306e\u30b9\u30bf\u30f3\u30d7\u3092\u7372\u5f97\u3057\u307e\u3057\u305f\u3002",
-  closeButton: "\u9589\u3058\u308b",
-} as const
+const TEXT_MAP: Record<
+  AppLanguage,
+  {
+    closeLabel: string
+    storePhotoSuffix: string
+    noImage: string
+    stampAlt: string
+    headline: string
+    message: string
+    closeButton: string
+  }
+> = {
+  ja: {
+    closeLabel: "閉じる",
+    storePhotoSuffix: " の写真",
+    noImage: "店舗画像がありません",
+    stampAlt: "スタンプ画像",
+    headline: "スタンプGET!",
+    message: "おめでとうございます！この店舗のスタンプを獲得しました。",
+    closeButton: "閉じる",
+  },
+  en: {
+    closeLabel: "Close",
+    storePhotoSuffix: " photo",
+    noImage: "No store image available",
+    stampAlt: "Stamp image",
+    headline: "Stamp unlocked!",
+    message: "Congratulations! You collected this store's stamp.",
+    closeButton: "Close",
+  },
+  zh: {
+    closeLabel: "关闭",
+    storePhotoSuffix: " 的照片",
+    noImage: "没有店铺图片",
+    stampAlt: "印章图片",
+    headline: "获得印章！",
+    message: "恭喜！你已取得这家店的印章。",
+    closeButton: "关闭",
+  },
+}
 
 export default function StampSuccessModal({
   open,
@@ -28,6 +60,8 @@ export default function StampSuccessModal({
   stampFallbackText,
   onClose,
 }: StampSuccessModalProps) {
+  const language = useLanguage()
+  const TEXT = TEXT_MAP[language]
   const [panelVisible, setPanelVisible] = useState(false)
   const [stampVisible, setStampVisible] = useState(false)
 

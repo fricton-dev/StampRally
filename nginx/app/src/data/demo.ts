@@ -16,6 +16,11 @@ export const demoTenants: Record<TenantId, TenantSeed> = {
       stampImageUrl: undefined,
       backgroundImageUrl: tenantTexture,
       themeColor: "orange",
+      campaignTimezone: "UTC+09:00",
+      language: "ja",
+      couponUsageMode: "campaign",
+      couponUsageStart: "",
+      couponUsageEnd: "",
     },
     stores: [
       {
@@ -73,6 +78,11 @@ export const demoTenants: Record<TenantId, TenantSeed> = {
       stampImageUrl: "https://picsum.photos/seed/stamp-morioka/120/120",
       backgroundImageUrl: tenantTexture,
       themeColor: "teal",
+      campaignTimezone: "UTC+08:00",
+      language: "en",
+      couponUsageMode: "campaign",
+      couponUsageStart: "",
+      couponUsageEnd: "",
     },
     stores: [
       {
