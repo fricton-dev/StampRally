@@ -2,11 +2,14 @@ import { type ChangeEvent, type FormEvent, useEffect, useMemo, useState } from "
 import { Link, useNavigate, useParams } from "react-router-dom"
 
 import { addTenantStore, uploadTenantImage } from "../../lib/api"
+import { ACCEPTED_IMAGE_TYPES } from "../../lib/config"
 import { geocodeAddress, type GeocodeCandidate } from "../../lib/geo"
 import { clearTenantSession } from "../../lib/tenantAdminSession"
 import { useTenantAdmin } from "./TenantAdminContext"
 import StampQrCard from "../../components/StampQrCard"
 import { buildStampPayload } from "../../lib/stamps"
+import { getLocaleForLanguage, normalizeLanguage } from "../../lib/i18n"
+import { useStoreEditorText } from "../../lib/adminTexts"
 
 type FormState = {
   storeId: string
@@ -18,55 +21,6 @@ type FormState = {
   stampMark: string
 }
 
-const TEXT = {
-  unauthorizedError: "管理者セッションの有効期限が切れました。再度ログインしてください。",
-  imageUploadSuccess: "画像をアップロードしました。",
-  imageUploadFailure: "画像のアップロードに失敗しました。",
-  addressRequired: "住所を入力してください。",
-  addressNotFound: "該当する住所が見つかりませんでした。",
-  addressLookupFailed: "住所の検索に失敗しました。",
-  addressAppliedSingle: (name: string) => `${name} の座標を反映しました。`,
-  addressAppliedMultiple: (count: number) =>
-    `${count}件の候補を取得しました。先頭の候補で緯度・経度を入力しています。`,
-  coordinatesApplied: (name: string) => `${name} の座標を反映しました。`,
-  requiredFields: "店舗名と緯度・経度は必須です。",
-  storeCreated: "店舗を登録しました。",
-  storeUpdated: "店舗を更新しました。",
-  storeSaveFailed: "店舗情報の保存に失敗しました。",
-  storeNotFoundTitle: "店舗が見つかりません",
-  storeNotFoundMessage: (id: string | undefined) =>
-    `ID ${id ?? "-"} の店舗は存在しないか、削除された可能性があります。`,
-  backToList: "店舗一覧へ戻る",
-  pageTitleCreate: "店舗を追加",
-  pageTitleEdit: "店舗を編集",
-  pageDescription:
-    "緯度と経度は店舗の場所を決めるために必須です。ボタンから住所検索で自動入力もできます。",
-  storeIdLabel: "店舗ID（任意）",
-  storeIdPlaceholder: "未入力の場合は自動発行されます",
-  storeNameLabel: "店舗名",
-  addressSearchLabel: "住所から検索",
-  addressPlaceholder: "例: 東京都千代田区丸の内1-1-1",
-  searchButton: "緯度・経度を検索",
-  searchingButton: "検索中...",
-  candidateTitle: "候補を選択",
-  useThisCoordinate: "この座標を使う",
-  latLabel: "緯度",
-  lngLabel: "経度",
-  imageLabel: "店舗画像",
-  imageUploading: "画像をアップロードしています…",
-  openImage: "画像を開く",
-  clearImage: "画像をクリア",
-  imageHint:
-    "最大5MBの PNG / JPEG / GIF / WEBP に対応しています。ファイルを選択すると自動でアップロードされ、下のURL欄に反映されます。",
-  descriptionLabel: "説明",
-  descriptionPlaceholder: "例: 営業時間や補足メモなど",
-  stampMarkLabel: "スタンプマーク",
-  stampMarkPlaceholder: "スタンプ表に表示する任意の短い文字",
-  saveInProgress: "保存中...",
-  saveNew: "店舗を登録",
-  saveEdit: "変更を保存",
-  geocodeLatLng: (lat: number, lng: number) => `緯度: ${lat.toFixed(6)} / 経度: ${lng.toFixed(6)}`,
-} as const
 
 const emptyForm: FormState = {
   storeId: "",
@@ -87,6 +41,10 @@ export default function TenantAdminStoreEditorPage() {
   const { storeId } = useParams<{ storeId?: string }>()
   const navigate = useNavigate()
   const { tenantId, seed, session, refreshSeed } = useTenantAdmin()
+  const TEXT = useStoreEditorText()
+  const tenantLanguage = normalizeLanguage(seed.tenant.language)
+  const locale = getLocaleForLanguage(tenantLanguage)
+  const numberFormatter = useMemo(() => new Intl.NumberFormat(locale), [locale])
   const isEdit = Boolean(storeId)
 
   const existingStore = useMemo(
@@ -238,8 +196,11 @@ export default function TenantAdminStoreEditorPage() {
       applyCandidateToForm(candidates[0])
       setGeocodeStatus(
         candidates.length === 1
-          ? TEXT.addressAppliedSingle(candidates[0].displayName)
-          : TEXT.addressAppliedMultiple(candidates.length),
+          ? TEXT.addressAppliedSingle.replace("{name}", candidates[0].displayName)
+          : TEXT.addressAppliedMultiple.replace(
+              "{count}",
+              numberFormatter.format(candidates.length),
+            ),
       )
     } catch (error) {
       const message = error instanceof Error ? error.message : TEXT.addressLookupFailed
@@ -252,7 +213,7 @@ export default function TenantAdminStoreEditorPage() {
 
   const handleSelectCandidate = (candidate: GeocodeCandidate) => {
     applyCandidateToForm(candidate)
-    setGeocodeStatus(TEXT.coordinatesApplied(candidate.displayName))
+    setGeocodeStatus(TEXT.coordinatesApplied.replace("{name}", candidate.displayName))
   }
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -263,6 +224,10 @@ export default function TenantAdminStoreEditorPage() {
     }
     if (!form.name.trim() || !form.lat.trim() || !form.lng.trim()) {
       setError(TEXT.requiredFields)
+      if (!form.lat.trim() || !form.lng.trim()) {
+        setGeocodeError(TEXT.addressRequired)
+        setGeocodeStatus(null)
+      }
       return
     }
 
@@ -315,7 +280,9 @@ export default function TenantAdminStoreEditorPage() {
     return (
       <div className="mx-auto max-w-2xl space-y-4 p-4 pb-20">
         <h1 className="text-2xl font-semibold text-gray-900">{TEXT.storeNotFoundTitle}</h1>
-        <p className="text-sm text-gray-600">{TEXT.storeNotFoundMessage(storeId)}</p>
+        <p className="text-sm text-gray-600">
+          {TEXT.storeNotFoundMessage.replace("{id}", storeId ?? "-")}
+        </p>
         <Link
           to={`/tenant/${tenantId}/admin/stores`}
           className="inline-flex items-center justify-center rounded-lg bg-orange-500 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-orange-600"
@@ -339,7 +306,7 @@ export default function TenantAdminStoreEditorPage() {
           to={`/tenant/${tenantId}/admin/stores`}
           className="inline-flex items-center gap-2 rounded-lg border border-orange-200 px-3 py-1.5 text-sm font-semibold text-orange-600 shadow-sm transition hover:border-orange-400 hover:text-orange-700"
         >
-          ← {TEXT.backToList}
+          {TEXT.backToList}
         </Link>
       </header>
 
@@ -396,7 +363,6 @@ export default function TenantAdminStoreEditorPage() {
                   {geocodeCandidates.map((candidate, index) => (
                     <li key={`${candidate.lat}-${candidate.lng}-${index}`} className="rounded-lg border border-orange-100 bg-white p-3 text-left">
                       <p className="text-sm font-semibold text-gray-800">{candidate.displayName}</p>
-                      <p className="mt-1 text-xs text-gray-500">{TEXT.geocodeLatLng(candidate.lat, candidate.lng)}</p>
                       <button
                         type="button"
                         onClick={() => handleSelectCandidate(candidate)}
@@ -410,34 +376,12 @@ export default function TenantAdminStoreEditorPage() {
               </div>
             )}
           </div>
-          <div>
-            <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">{TEXT.latLabel}</label>
-            <input
-              type="number"
-              step="0.000001"
-              value={form.lat}
-              onChange={handleChange("lat")}
-              required
-              className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-orange-400 focus:outline-none focus:ring-1 focus:ring-orange-400"
-            />
-          </div>
-          <div>
-            <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">{TEXT.lngLabel}</label>
-            <input
-              type="number"
-              step="0.000001"
-              value={form.lng}
-              onChange={handleChange("lng")}
-              required
-              className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-orange-400 focus:outline-none focus:ring-1 focus:ring-orange-400"
-            />
-          </div>
           <div className="md:col-span-2">
             <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">{TEXT.imageLabel}</label>
             <div className="mt-1 space-y-2 rounded-lg border border-dashed border-gray-300 p-3">
               <input
                 type="file"
-                accept="image/*"
+                accept={ACCEPTED_IMAGE_TYPES}
                 onChange={handleImageFileChange}
                 disabled={uploadingImage}
                 className="block w-full text-sm text-gray-700 file:mr-3 file:rounded-md file:border-0 file:bg-orange-500 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-orange-600"
@@ -449,7 +393,7 @@ export default function TenantAdminStoreEditorPage() {
                 <div className="flex flex-col gap-2 md:flex-row md:items-center">
                   <img
                     src={form.imageUrl}
-                    alt="店舗画像プレビュー"
+                    alt={TEXT.imagePreviewAlt}
                     className="h-20 w-20 rounded-md border border-gray-200 object-cover"
                   />
                   <div className="flex flex-wrap items-center gap-2 text-xs text-gray-600">
@@ -503,19 +447,17 @@ export default function TenantAdminStoreEditorPage() {
           </div>
         </div>
         <section className="space-y-3 rounded-xl border border-orange-100 bg-orange-50/70 p-4">
-          <h2 className="text-sm font-semibold text-gray-900">スタンプQRコード</h2>
-          <p className="text-xs text-gray-600">
-            来店時に読み取るQRコードです。ダウンロードして印刷するか、他端末に共有してください。
-          </p>
+          <h2 className="text-sm font-semibold text-gray-900">{TEXT.qrSectionTitle}</h2>
+          <p className="text-xs text-gray-600">{TEXT.qrSectionDescription}</p>
           {qrPayload ? (
             <StampQrCard
               payload={qrPayload}
-              title="QRコード"
+              title={TEXT.qrSectionTitle}
               description={`STAMP:${tenantId}:${effectiveStoreId}`}
               downloadFilename={`stamp-${tenantId}-${effectiveStoreId}.png`}
             />
           ) : (
-            <p className="text-xs text-gray-500">店舗IDが未確定のため、QRコードは保存後に表示されます。</p>
+            <p className="text-xs text-gray-500">{TEXT.qrSectionEmpty}</p>
           )}
         </section>
         <button

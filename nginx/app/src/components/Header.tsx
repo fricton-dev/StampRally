@@ -9,6 +9,29 @@ import {
   type TenantAdminSession,
 } from "../lib/tenantAdminSession"
 import { TENANT_TOKEN_INFO_KEY, TENANT_TOKEN_STORAGE_KEY } from "../lib/config"
+import { useLanguage } from "../lib/i18n"
+import type { AppLanguage } from "../types"
+
+const HEADER_TEXT: Record<AppLanguage, { logout: string; demo: string; admin: string; login: string }> = {
+  ja: {
+    logout: "ログアウト",
+    demo: "デモ確認",
+    admin: "管理画面",
+    login: "ログイン",
+  },
+  en: {
+    logout: "Log out",
+    demo: "View Demo",
+    admin: "Admin Panel",
+    login: "Log in",
+  },
+  zh: {
+    logout: "登出",
+    demo: "檢視示範",
+    admin: "管理後台",
+    login: "登入",
+  },
+}
 
 export default function Header() {
   const tenant = useAppStore((state) => state.tenant)
@@ -16,6 +39,8 @@ export default function Header() {
   const user = useAuthStore((state) => state.user)
   const logout = useAuthStore((state) => state.logout)
   const navigate = useNavigate()
+  const language = useLanguage()
+  const TEXT = HEADER_TEXT[language]
   const [adminSession, setAdminSession] = useState<TenantAdminSession | null>(() =>
     readTenantSession(tenantId),
   )
@@ -59,7 +84,7 @@ export default function Header() {
   const isAdminPreview = !user && adminSession && adminSession.tenantId === tenantId
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-40 h-14 bg-gradient-to-r from-orange-500 to-orange-500 text-white shadow-md">
+    <header className="fixed top-0 left-0 right-0 z-[1200] h-14 bg-gradient-to-r from-orange-500 to-orange-500 text-white shadow-md">
       <div className="mx-auto flex h-full max-w-md items-center justify-between px-4">
         <div className="text-sm font-semibold tracking-wider">{tenant.tenantName}</div>
         <div className="text-xs">
@@ -73,7 +98,7 @@ export default function Header() {
                 onClick={handleLogout}
                 className="rounded-full bg-white/20 px-3 py-1 font-semibold hover:bg-white/30"
               >
-                ログアウト
+                {TEXT.logout}
               </button>
             </div>
           ) : isAdminPreview ? (
@@ -82,13 +107,13 @@ export default function Header() {
                 to={`/tenant/${tenantId}`}
                 className="rounded-full bg-white/20 px-3 py-1 font-semibold hover:bg-white/30"
               >
-                デモ確認
+                {TEXT.demo}
               </Link>
               <Link
                 to={`/tenant/${tenantId}/admin/dashboard`}
                 className="rounded-full bg-white px-3 py-1 font-semibold text-orange-600 shadow hover:bg-orange-50"
               >
-                管理画面
+                {TEXT.admin}
               </Link>
             </div>
           ) : (
@@ -96,7 +121,7 @@ export default function Header() {
               to={`/tenant/${tenantId}/auth/user`}
               className="rounded-full bg-white/20 px-3 py-1 font-semibold hover:bg-white/30"
             >
-              ログイン
+              {TEXT.login}
             </Link>
           )}
         </div>

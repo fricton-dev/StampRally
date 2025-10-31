@@ -9,22 +9,69 @@ import { recordStamp } from "../lib/api"
 import { useAuthStore } from "../lib/authStore"
 import { useAppStore, useTenantId } from "../lib/store"
 import { STAMP_PREFIX } from "../lib/stamps"
+import { useLanguage } from "../lib/i18n"
+import type { AppLanguage } from "../types"
 
-const STRINGS = {
-  invalidQr: "QR\u30b3\u30fc\u30c9\u306e\u5f62\u5f0f\u304c\u6b63\u3057\u304f\u3042\u308a\u307e\u305b\u3093\u3002",
-  wrongTenant: "\u5225\u306e\u30c6\u30ca\u30f3\u30c8\u306eQR\u30b3\u30fc\u30c9\u3067\u3059\u3002",
-  loginRequired: "\u30b9\u30bf\u30f3\u30d7\u3092\u62bc\u3059\u306b\u306f\u30ed\u30b0\u30a4\u30f3\u304c\u5fc5\u8981\u3067\u3059\u3002",
-  spotNotFoundPrefix: "\u5bfe\u8c61\u306e\u30b9\u30dd\u30c3\u30c8\u304c\u898b\u3064\u304b\u308a\u307e\u305b\u3093:\u0020",
-  alreadyStamped: "\u3053\u306e\u30b9\u30dd\u30c3\u30c8\u306f\u3059\u3067\u306b\u30b9\u30bf\u30f3\u30d7\u6e08\u307f\u3067\u3059\u3002",
-  successSuffix: "\u0020\u306e\u30b9\u30bf\u30f3\u30d7\u3092\u7372\u5f97\u3057\u307e\u3057\u305f\uff01",
-  processFailed: "\u30b9\u30bf\u30f3\u30d7\u306e\u51e6\u7406\u306b\u5931\u6557\u3057\u307e\u3057\u305f\u3002",
-  manualAria: "QR\u30b3\u30fc\u30c9\u6587\u5b57\u5217\u306e\u624b\u5165\u529b",
-  manualPlaceholder:
-    "\u4f8b:\u0020STAMP:\u0074\u0065\u006e\u0061\u006e\u0074\u002d\u0069\u0064:\u0073\u0074\u006f\u0072\u0065\u002d\u0069\u0064",
-  manualButton: "\u624b\u5165\u529b\u3067\u30b9\u30bf\u30f3\u30d7",
-  cameraNote: "\u203b\u0020\u30ab\u30e1\u30e9\u3078\u306e\u30a2\u30af\u30bb\u30b9\u8a31\u53ef\u304c\u5fc5\u8981\u3067\u3059\u3002",
-  headerTitle: "QR スキャン",
-} as const
+const STRINGS_MAP: Record<
+  AppLanguage,
+  {
+    invalidQr: string
+    wrongTenant: string
+    loginRequired: string
+    spotNotFoundPrefix: string
+    alreadyStamped: string
+    successSuffix: string
+    processFailed: string
+    manualAria: string
+    manualPlaceholder: string
+    manualButton: string
+    cameraNote: string
+    headerTitle: string
+  }
+> = {
+  ja: {
+    invalidQr: "QRコードの形式が正しくありません。",
+    wrongTenant: "別のテナントのQRコードです。",
+    loginRequired: "スタンプを押すにはログインが必要です。",
+    spotNotFoundPrefix: "対象のスポットが見つかりません: ",
+    alreadyStamped: "このスポットはすでにスタンプ済みです。",
+    successSuffix: " のスタンプを獲得しました！",
+    processFailed: "スタンプの処理に失敗しました。",
+    manualAria: "QRコード文字列の手入力",
+    manualPlaceholder: "例: STAMP:tenant-id:store-id",
+    manualButton: "手入力でスタンプ",
+    cameraNote: "※ カメラへのアクセス許可が必要です。",
+    headerTitle: "QR スキャン",
+  },
+  en: {
+    invalidQr: "The QR code format is invalid.",
+    wrongTenant: "This QR code belongs to a different tenant.",
+    loginRequired: "You need to log in before collecting a stamp.",
+    spotNotFoundPrefix: "Stamp location not found: ",
+    alreadyStamped: "You already collected this stamp.",
+    successSuffix: " stamp collected!",
+    processFailed: "Failed to process the stamp.",
+    manualAria: "Manual QR code input",
+    manualPlaceholder: "Example: STAMP:tenant-id:store-id",
+    manualButton: "Submit manually",
+    cameraNote: "※ Camera access permission is required.",
+    headerTitle: "QR Scan",
+  },
+  zh: {
+    invalidQr: "QR 码格式无效。",
+    wrongTenant: "这是其他租户的 QR 码。",
+    loginRequired: "领取印章前需要先登录。",
+    spotNotFoundPrefix: "找不到对应的地点：",
+    alreadyStamped: "此地点已领取过印章。",
+    successSuffix: " 的印章已领取！",
+    processFailed: "处理印章时出现错误。",
+    manualAria: "手动输入 QR 代码",
+    manualPlaceholder: "示例: STAMP:tenant-id:store-id",
+    manualButton: "手动提交",
+    cameraNote: "※ 需要授予相机权限。",
+    headerTitle: "QR 扫描",
+  },
+}
 
 type StatusMessage = {
   type: "success" | "error" | "info"
@@ -38,6 +85,8 @@ type SuccessState = {
 }
 
 export default function Scan() {
+  const language = useLanguage()
+  const STRINGS = STRINGS_MAP[language]
   const tenantId = useTenantId()
   const tenant = useAppStore((state) => state.tenant)
   const stores = useAppStore((state) => state.stores)
@@ -178,7 +227,7 @@ export default function Scan() {
         </div>
         <div className="border border-orange-100 bg-orange-50/90 p-4">
           <QRScanner onText={onText} />
-          <form className="mt-4 flex flex-col gap-2 sm:flex-row" onSubmit={handleManualSubmit}>
+          {/* <form className="mt-4 flex flex-col gap-2 sm:flex-row" onSubmit={handleManualSubmit}>
             <input
               aria-label={STRINGS.manualAria}
               autoComplete="off"
@@ -193,7 +242,7 @@ export default function Scan() {
             >
               {STRINGS.manualButton}
             </button>
-          </form>
+          </form> */}
           {status && <div className={`mt-3 text-sm font-medium ${statusStyle}`}>{status.text}</div>}
         </div>
       </div>
@@ -228,9 +277,9 @@ export default function Scan() {
                   key={coupon.id}
                   className="flex items-center gap-3 rounded-lg border border-orange-200 bg-orange-50 px-3 py-2"
                 >
-                  <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg border border-orange-100 bg-white">
-                    <CouponIcon icon={coupon.icon} className="h-6 w-6 text-orange-500" />
-                  </div>
+                  {/* <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg border border-orange-100 bg-white">
+                    <CouponIcon icon={coupon.icon} className="h-6 w-6 text-orange-500" fillImage />
+                  </div> */}
                   <div className="min-w-0">
                     <div className="text-sm font-semibold text-orange-700">{coupon.title}</div>
                     {coupon.description ? (

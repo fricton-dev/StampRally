@@ -25,12 +25,12 @@ export default function StampQrCard({
     setDataUrl(null)
 
     QRCode.toDataURL(payload, { width: size, errorCorrectionLevel: "M", margin: 1 })
-      .then((url) => {
+      .then((url: string) => {
         if (!cancelled) {
           setDataUrl(url)
         }
       })
-      .catch((err) => {
+      .catch((err: unknown) => {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : "QRコードの生成に失敗しました。")
         }

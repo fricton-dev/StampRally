@@ -11,6 +11,53 @@ import {
 } from "@heroicons/react/24/outline"
 
 import { useTenantId } from "../lib/store"
+import { useLanguage } from "../lib/i18n"
+import type { AppLanguage } from "../types"
+
+const NAV_TEXT: Record<
+  AppLanguage,
+  {
+    adminDashboard: string
+    adminStores: string
+    adminCampaign: string
+    adminCoupons: string
+    home: string
+    scan: string
+    map: string
+    coupons: string
+  }
+> = {
+  ja: {
+    adminDashboard: "ダッシュボード",
+    adminStores: "店舗一覧",
+    adminCampaign: "キャンペーン",
+    adminCoupons: "クーポン管理",
+    home: "ホーム",
+    scan: "QR",
+    map: "マップ",
+    coupons: "クーポン",
+  },
+  en: {
+    adminDashboard: "Dashboard",
+    adminStores: "Stores",
+    adminCampaign: "Campaign",
+    adminCoupons: "Coupons",
+    home: "Home",
+    scan: "QR",
+    map: "Map",
+    coupons: "Coupons",
+  },
+  zh: {
+    adminDashboard: "儀表板",
+    adminStores: "店鋪清單",
+    adminCampaign: "活動設定",
+    adminCoupons: "票券管理",
+    home: "首頁",
+    scan: "QR",
+    map: "地圖",
+    coupons: "票券",
+  },
+}
 
 type NavItem = {
   to: string
@@ -24,6 +71,8 @@ const baseItemClass =
   "flex-1 px-2 py-2 flex flex-col items-center justify-center gap-1 text-xs font-medium text-white transition-colors"
 
 export default function BottomNav() {
+  const language = useLanguage()
+  const TEXT = NAV_TEXT[language]
   const tenantId = useTenantId()
   const location = useLocation()
   const currentTenantPath = `/tenant/${tenantId}`
@@ -33,13 +82,13 @@ export default function BottomNav() {
     ? [
         {
           to: `${currentTenantPath}/admin/dashboard`,
-          label: "ダッシュボード",
+          label: TEXT.adminDashboard,
           icon: PresentationChartBarIcon,
           end: true,
         },
         {
           to: `${currentTenantPath}/admin/stores`,
-          label: "店舗一覧",
+          label: TEXT.adminStores,
           icon: BuildingStorefrontIcon,
           isActive: (pathname) =>
             Boolean(
@@ -49,21 +98,21 @@ export default function BottomNav() {
         },
         {
           to: `${currentTenantPath}/admin/campaign`,
-          label: "キャンペーン",
+          label: TEXT.adminCampaign,
           icon: SparklesIcon,
           end: true,
         },
         {
           to: `${currentTenantPath}/admin/coupons`,
-          label: "クーポン管理",
+          label: TEXT.adminCoupons,
           icon: TicketIcon,
         },
       ]
     : [
-        { to: currentTenantPath, label: "ホーム", icon: HomeIcon, end: true },
-        { to: `${currentTenantPath}/scan`, label: "QR", icon: QrCodeIcon },
-        { to: `${currentTenantPath}/map`, label: "マップ", icon: MapPinIcon },
-        { to: `${currentTenantPath}/coupons`, label: "クーポン", icon: TicketIcon },
+        { to: currentTenantPath, label: TEXT.home, icon: HomeIcon, end: true },
+        { to: `${currentTenantPath}/scan`, label: TEXT.scan, icon: QrCodeIcon },
+        { to: `${currentTenantPath}/map`, label: TEXT.map, icon: MapPinIcon },
+        { to: `${currentTenantPath}/coupons`, label: TEXT.coupons, icon: TicketIcon },
       ]
 
   return (

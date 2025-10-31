@@ -10,6 +10,7 @@ import type {
   Store,
   TenantConfig,
   ThemeColor,
+  CouponUsageMode,
   TenantDashboardStats,
   TenantCreateResponse,
   TenantLoginResponse,
@@ -315,6 +316,11 @@ export const updateTenantCampaign = (
   payload: {
     campaignStart?: string
     campaignEnd?: string
+    campaignTimezone?: string
+    language?: string
+    couponUsageMode?: CouponUsageMode
+    couponUsageStart?: string
+    couponUsageEnd?: string
     campaignDescription?: string
     backgroundImageUrl?: string
     stampImageUrl?: string
@@ -328,6 +334,11 @@ export const updateTenantCampaign = (
     body: {
       campaign_start: payload.campaignStart,
       campaign_end: payload.campaignEnd,
+      campaign_timezone: payload.campaignTimezone,
+      language: payload.language,
+      coupon_usage_mode: payload.couponUsageMode,
+      coupon_usage_start: payload.couponUsageStart,
+      coupon_usage_end: payload.couponUsageEnd,
       campaign_description: payload.campaignDescription,
       background_image_url: payload.backgroundImageUrl,
       stamp_image_url: payload.stampImageUrl,

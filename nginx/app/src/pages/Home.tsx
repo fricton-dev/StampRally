@@ -1,21 +1,114 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { Link } from "react-router-dom"
-import { TicketIcon, GiftIcon, TrophyIcon, XMarkIcon } from "@heroicons/react/24/solid"
+import { XMarkIcon } from "@heroicons/react/24/solid"
 
 import defaultStampImage from "../assets/stamp.png"
 import CouponIcon from "../components/CouponIcon"
 import { nextThreshold } from "../lib/stamps"
 import { useAppStore, useTenantId } from "../lib/store"
+import { useLanguage } from "../lib/i18n"
+import type { AppLanguage } from "../types"
 
 const clampPercentage = (value: number) => Math.max(0, Math.min(100, value))
 const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3)
 const ANIMATION_DURATION = 600
 const MAX_STAMP_SLOTS_RENDERED = 200
 
-const ICON_MAP: Record<string, typeof TicketIcon | null> = {
-  ticket: TicketIcon,
-  gift: GiftIcon,
-  trophy: TrophyIcon,
+const TEXT_MAP: Record<
+  AppLanguage,
+  {
+    currentStampCount: string
+    nextRewardPrefix: string
+    nextRewardMiddle: string
+    nextRewardSuffix: string
+    progressLabel: string
+    markerReached: (threshold: number) => string
+    markerTarget: (threshold: number) => string
+    stampBookButton: (isOpen: boolean) => string
+    stampBookMax: (max: number) => string
+    stampBookTruncated: (start: number) => string
+    scanButton: string
+    mapButton: string
+    rewardsTitle: string
+    collectRequirement: (threshold: number) => string
+    achieved: string
+    notAchieved: string
+    noRewards: string
+    modalCloseAria: string
+    modalTitle: string
+    modalDescription: string
+    modalAction: string
+  }
+> = {
+  ja: {
+    currentStampCount: "現在のスタンプ数",
+    nextRewardPrefix: "次の特典「",
+    nextRewardMiddle: "」まであと ",
+    nextRewardSuffix: " 個",
+    progressLabel: "進捗",
+    markerReached: (threshold) => `${threshold}個達成済み`,
+    markerTarget: (threshold) => `${threshold}個でクーポン獲得`,
+    stampBookButton: (isOpen) => `スタンプ帳を${isOpen ? "閉じる" : "表示"}`,
+    stampBookMax: (max) => `最大 ${max} 個`,
+    stampBookTruncated: (start) => `※ ${start} 個目以降は省略して表示しています。`,
+    scanButton: "QRコードを読み取る",
+    mapButton: "お店を探す",
+    rewardsTitle: "特典一覧",
+    collectRequirement: (threshold) => `${threshold} 個集める`,
+    achieved: "達成",
+    notAchieved: "未達成",
+    noRewards: "まだ特典が設定されていません。",
+    modalCloseAria: "閉じる",
+    modalTitle: "新しいクーポンを獲得しました！",
+    modalDescription: "さっそくクーポン一覧で詳細をチェックしましょう。",
+    modalAction: "次のスタンプを集めに行こう！",
+  },
+  en: {
+    currentStampCount: "Current stamps",
+    nextRewardPrefix: "Next reward \"",
+    nextRewardMiddle: "\" in ",
+    nextRewardSuffix: " more stamps",
+    progressLabel: "Progress",
+    markerReached: (threshold) => `${threshold} stamps collected`,
+    markerTarget: (threshold) => `${threshold} stamps for a reward`,
+    stampBookButton: (isOpen) => (isOpen ? "Hide stamp book" : "Show stamp book"),
+    stampBookMax: (max) => `Max ${max} stamps`,
+    stampBookTruncated: (start) => `※ Entries after stamp ${start} are hidden.`,
+    scanButton: "Scan QR code",
+    mapButton: "Find stores",
+    rewardsTitle: "Rewards",
+    collectRequirement: (threshold) => `Collect ${threshold} stamps`,
+    achieved: "Completed",
+    notAchieved: "Not yet",
+    noRewards: "No rewards configured yet.",
+    modalCloseAria: "Close",
+    modalTitle: "You got a new coupon!",
+    modalDescription: "Open the coupon list to see more details.",
+    modalAction: "Collect the next stamp!",
+  },
+  zh: {
+    currentStampCount: "目前的印章数量",
+    nextRewardPrefix: "距离下一个奖励「",
+    nextRewardMiddle: "」还差 ",
+    nextRewardSuffix: " 个印章",
+    progressLabel: "进度",
+    markerReached: (threshold) => `已集满 ${threshold} 个印章`,
+    markerTarget: (threshold) => `集满 ${threshold} 个印章可获奖励`,
+    stampBookButton: (isOpen) => (isOpen ? "隐藏印章册" : "显示印章册"),
+    stampBookMax: (max) => `最多 ${max} 个`,
+    stampBookTruncated: (start) => `※ 从第 ${start} 个印章起的格子不再显示。`,
+    scanButton: "扫描 QR 码",
+    mapButton: "寻找店铺",
+    rewardsTitle: "奖励列表",
+    collectRequirement: (threshold) => `集满 ${threshold} 个印章`,
+    achieved: "已达成",
+    notAchieved: "未达成",
+    noRewards: "尚未设置任何奖励。",
+    modalCloseAria: "关闭",
+    modalTitle: "获得新的优惠券！",
+    modalDescription: "快到优惠券列表查看详情。",
+    modalAction: "去收集下一个印章！",
+  },
 }
 
 export default function Home() {
@@ -25,6 +118,8 @@ export default function Home() {
   const recentRewardCoupons = useAppStore((state) => state.recentRewardCoupons)
   const clearRecentRewardCoupons = useAppStore((state) => state.clearRecentRewardCoupons)
   const stampImg = tenant.stampImageUrl ?? defaultStampImage
+  const language = useLanguage()
+  const TEXT = TEXT_MAP[language]
 
   const sortedRules = useMemo(() => [...tenant.rules].sort((a, b) => a.threshold - b.threshold), [tenant.rules])
 
@@ -125,50 +220,77 @@ export default function Home() {
   )
   const stampBookTruncated = maxStamps > MAX_STAMP_SLOTS_RENDERED
 
+  
+
   return (
     <div className="mx-auto max-w-md p-4 pb-16">
       <section className="mb-4 rounded-xl bg-white/80 p-4 shadow-sm">
-        <div className="text-sm text-gray-600">現在のスタンプ数</div>
+        <div className="text-sm text-gray-600">{TEXT.currentStampCount}</div>
         <div className="mt-1 flex items-center gap-3 text-4xl font-extrabold">
           {displayedStamps}
           <img src={stampImg} alt="stamp" className="h-10 w-10" />
         </div>
         <div className="mt-1 text-sm text-gray-600">
-          次の特典「<span className="font-semibold text-gray-800">{nxt.label}</span>」まであと{" "}
-          <b className="text-orange-600">{nxt.remaining}</b> 個
+          {TEXT.nextRewardPrefix}
+          <span className="font-semibold text-gray-800">{nxt.label}</span>
+          {TEXT.nextRewardMiddle}
+          <b className="text-orange-600">{nxt.remaining}</b>
+          {TEXT.nextRewardSuffix}
         </div>
 
         <div className="mt-4">
           <div className="flex items-center justify-between text-xs text-gray-500">
-            <span>進捗</span>
+            <span>{TEXT.progressLabel}</span>
             <span className="text-gray-600">
               {Math.min(displayedStamps, maxStamps)}/{maxStamps}
             </span>
           </div>
-          <div className="relative mt-2 pt-8">
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-8">
-              {markers.map((marker) => (
-                <div
-                  key={marker.threshold}
-                  className="absolute flex flex-col items-center gap-1"
-                  style={{ left: `${marker.position}%`, transform: "translateX(-50%)" }}
-                >
+            <div className="relative mt-2 pt-9">
+              <div className="pointer-events-none absolute inset-x-3 top-0 h-8">
+                {markers.map((marker) => (
                   <div
-                    className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                      marker.reached ? "bg-orange-500 text-white shadow" : "bg-white text-orange-600 border border-orange-300"
-                    }`}
+                    key={marker.threshold}
+                    className="absolute flex flex-col items-center"
+                    style={{ left: `${marker.position}%`, transform: "translateX(-50%)" }}
                   >
-                    {marker.threshold}
+                    <div className="relative flex flex-col items-center">
+                      <span
+                        className={`pointer-events-none absolute left-1/2 top-full -mt-[1px] h-0 w-0 -translate-x-1/2 border-x-[6.5px] border-x-transparent ${
+                          marker.reached ? "border-t-orange-500" : "border-t-orange-300"
+                        }`}
+                        aria-hidden="true"
+                      />
+                      {!marker.reached && (
+                        <span
+                          className="pointer-events-none absolute left-1/2 top-full -mt-[2.5px] h-0 w-0 -translate-x-1/2 border-x-[6px] border-x-transparent border-t-white"
+                          aria-hidden="true"
+                        />
+                      )}
+                      <div
+                        className={`relative z-10 flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-semibold ${
+                          marker.reached
+                            ? "bg-orange-500 text-white shadow-md"
+                            : "border border-orange-300 bg-white text-orange-600"
+                        }`}
+                      >
+                        {marker.reached ? (
+                          <span aria-hidden="true" className="text-xs leading-none">
+                            ✓
+                          </span>
+                        ) : (
+                          marker.threshold
+                        )}
+                        <span className="sr-only">
+                          {marker.reached
+                            ? TEXT.markerReached(marker.threshold)
+                            : TEXT.markerTarget(marker.threshold)}
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                  <div className={`h-4 w-0.5 ${marker.reached ? "bg-orange-500" : "bg-orange-200"}`} />
-                  <div
-                    className={`h-2 w-2 rounded-full ${marker.reached ? "bg-orange-500" : "bg-orange-200"}`}
-                    aria-hidden="true"
-                  />
-                </div>
-              ))}
-            </div>
-            <div className="relative h-5 w-full overflow-hidden rounded-full border border-orange-200 bg-gradient-to-r from-orange-100 via-white to-orange-100 shadow-inner">
+                ))}
+              </div>
+              <div className="relative h-5 w-full overflow-hidden rounded-full border border-orange-200 bg-gradient-to-r from-orange-100 via-white to-orange-100 shadow-inner">
               <div
                 className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-orange-400 via-orange-500 to-orange-600 shadow-md transition-all"
                 style={{ width: `${progressPercentage}%` }}
@@ -185,8 +307,8 @@ export default function Home() {
             aria-expanded={showStampBook}
             aria-controls="stamp-book-panel"
           >
-            スタンプ帳を{showStampBook ? "閉じる" : "表示"}
-            <span className="text-xs font-normal text-gray-500">最大 {maxStamps} 個</span>
+            {TEXT.stampBookButton(showStampBook)}
+            <span className="text-xs font-normal text-gray-500">{TEXT.stampBookMax(maxStamps)}</span>
           </button>
           {showStampBook && (
             <div
@@ -217,7 +339,7 @@ export default function Home() {
                 })}
               </div>
               {stampBookTruncated && (
-                <p className="mt-2 text-[11px] text-gray-500">※ {MAX_STAMP_SLOTS_RENDERED + 1} 個目以降は省略して表示しています。</p>
+                <p className="mt-2 text-[11px] text-gray-500">{TEXT.stampBookTruncated(MAX_STAMP_SLOTS_RENDERED + 1)}</p>
               )}
             </div>
           )}
@@ -229,51 +351,51 @@ export default function Home() {
           to={`/tenant/${tenantId}/scan`}
           className="rounded-xl bg-orange-400 p-4 text-center text-sm text-white shadow transition hover:scale-105"
         >
-          QRコードを読み取る
+          {TEXT.scanButton}
         </Link>
         <Link
           to={`/tenant/${tenantId}/map`}
           className="rounded-xl bg-orange-400 p-4 text-center text-sm text-white shadow transition hover:scale-105"
         >
-          お店を探す
+          {TEXT.mapButton}
         </Link>
       </div>
 
       <section className="mt-6">
         <div className="overflow-hidden rounded-lg border border-orange-100">
           <div className="bg-orange-500 px-4 py-3 text-white">
-            <h3 className="text-sm font-semibold">特典一覧</h3>
+            <h3 className="text-sm font-semibold">{TEXT.rewardsTitle}</h3>
           </div>
           <div className="space-y-3 border-t border-orange-100 bg-orange-50/90 p-3">
             {tenant.rules.map((rule) => {
               const achieved = progress.stamps >= rule.threshold
-              const Icon = rule.icon ? ICON_MAP[rule.icon] ?? null : null
+              const iconValue = rule.icon?.trim()
               return (
                 <div
                   key={rule.threshold}
                   className="flex items-center justify-between rounded-lg bg-white p-3 shadow-sm"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-orange-50">
-                      {Icon ? (
-                        <Icon className="h-6 w-6 text-orange-600" />
+                    <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-lg border border-orange-100 bg-white">
+                      {iconValue ? (
+                        <CouponIcon icon={iconValue} className="h-6 w-6 text-orange-600" fillImage />
                       ) : (
                         <img src={stampImg} alt="" aria-hidden="true" className="h-6 w-6" />
                       )}
                     </div>
                     <div>
                       <div className="font-medium text-gray-900">{rule.label}</div>
-                      <div className="text-xs text-gray-500">{rule.threshold} 個集める</div>
+                      <div className="text-xs text-gray-500">{TEXT.collectRequirement(rule.threshold)}</div>
                     </div>
                   </div>
                   <div>
                     {achieved ? (
                       <div className="inline-flex items-center gap-2 rounded-full bg-emerald-500 px-3 py-1 text-xs text-white">
-                        達成
+                        {TEXT.achieved}
                       </div>
                     ) : (
                       <div className="inline-flex items-center gap-2 rounded-full bg-gray-100 px-3 py-1 text-xs text-gray-600">
-                        未達成
+                        {TEXT.notAchieved}
                       </div>
                     )}
                   </div>
@@ -281,7 +403,7 @@ export default function Home() {
               )
             })}
             {tenant.rules.length === 0 && (
-              <p className="text-center text-xs text-gray-500">まだ特典が設定されていません。</p>
+              <p className="text-center text-xs text-gray-500">{TEXT.noRewards}</p>
             )}
           </div>
         </div>
@@ -294,20 +416,20 @@ export default function Home() {
               type="button"
               className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
               onClick={handleCloseRewardModal}
-              aria-label="閉じる"
+              aria-label={TEXT.modalCloseAria}
             >
               <XMarkIcon className="h-6 w-6" />
             </button>
-            <h3 className="text-lg font-bold text-gray-900">新しいクーポンを獲得しました！</h3>
-            <p className="mt-1 text-sm text-gray-600">さっそくクーポン一覧で詳細をチェックしましょう。</p>
+            <h3 className="text-lg font-bold text-gray-900">{TEXT.modalTitle}</h3>
+            <p className="mt-1 text-sm text-gray-600">{TEXT.modalDescription}</p>
             <div className="mt-4 max-h-60 space-y-3 overflow-y-auto pr-1">
               {recentRewardCoupons.map((coupon) => (
                 <div
                   key={coupon.id}
                   className="flex items-center gap-3 rounded-lg border border-orange-200 bg-orange-50 px-3 py-2"
                 >
-                  <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg border border-orange-100 bg-white">
-                    <CouponIcon icon={coupon.icon ?? undefined} className="h-6 w-6 text-orange-500" />
+                  <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg border border-orange-100 bg-white">
+                    <CouponIcon icon={coupon.icon ?? undefined} className="h-6 w-6 text-orange-500" fillImage />
                   </div>
                   <div className="min-w-0">
                     <div className="text-sm font-semibold text-orange-700">{coupon.title}</div>
@@ -323,7 +445,7 @@ export default function Home() {
               onClick={handleCloseRewardModal}
               className="mt-6 w-full rounded-xl bg-orange-500 py-2 text-sm font-semibold text-white shadow hover:bg-orange-600"
             >
-              次のスタンプを集めに行こう！
+              {TEXT.modalAction}
             </button>
           </div>
         </div>

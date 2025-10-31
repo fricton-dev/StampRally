@@ -1,49 +1,27 @@
-import { type ChangeEvent, type FormEvent, useEffect, useState } from "react"
+﻿import { type ChangeEvent, type FormEvent, useEffect, useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
 
 import { updateTenantCampaign, uploadTenantImage } from "../../lib/api"
+import { ACCEPTED_IMAGE_TYPES } from "../../lib/config"
 import { clearTenantSession } from "../../lib/tenantAdminSession"
 import { useTenantAdmin } from "./TenantAdminContext"
-import type { ThemeColor } from "../../types"
+import type { ThemeColor, CouponUsageMode } from "../../types"
+import { useCampaignText } from "../../lib/adminTexts"
 
-const THEME_OPTIONS: Array<{ value: ThemeColor; label: string; color: string; description: string }> = [
-  { value: "orange", label: "オレンジ", color: "#f97316", description: "明るく親しみやすい定番カラー" },
-  { value: "teal", label: "ティール", color: "#14b8a6", description: "爽やかで落ち着いた雰囲気に" },
-  { value: "green", label: "グリーン", color: "#22c55e", description: "自然で安心感のある色合い" },
-  { value: "pink", label: "ピンク", color: "#ec4899", description: "柔らかく華やかな印象に" },
+const THEME_PALETTE: Array<{ value: ThemeColor; color: string }> = [
+  { value: "orange", color: "#f97316" },
+  { value: "teal", color: "#14b8a6" },
+  { value: "green", color: "#22c55e" },
+  { value: "pink", color: "#ec4899" },
 ]
-
-const TEXT = {
-  headerTitle: "キャンペーン設定",
-  headerDescription: "開催期間や背景画像、テーマカラーなどの情報を更新できます。",
-  unauthorized: "管理者ログインの有効期限が切れました。再度ログインしてください。",
-  backgroundHint: "トップ背景に表示される画像を設定できます。",
-  stampHint: "スタンプを押した際に表示されるイメージなどを設定できます。",
-  backgroundUploading: "背景画像をアップロードしています…",
-  stampUploading: "スタンプ画像をアップロードしています…",
-  imageOpen: "画像を開く",
-  imageClear: "画像をクリア",
-  imageUploadFailed: "画像のアップロードに失敗しました。",
-  campaignStartLabel: "開始日",
-  campaignEndLabel: "終了日",
-  campaignMemoLabel: "キャンペーンメモ",
-  campaignMemoPlaceholder: "スタンプラリーの説明や注意事項を入力してください",
-  maxStampLabel: "最大スタンプ数",
-  maxStampPlaceholder: "例: 30",
-  maxStampHelp: "進捗バーとスタンプ帳に表示される上限値です。（1〜200の整数）",
-  maxStampValidation: "最大スタンプ数は1〜200の整数で入力してください。",
-  backgroundLabel: "背景画像",
-  stampLabel: "スタンプ画像",
-  themeSectionTitle: "テーマカラー",
-  themeSectionDescription: "サイト全体のアクセントカラーを選択してください。",
-  saveButton: "設定を保存",
-  savingButton: "保存中...",
-  successMessage: "キャンペーン情報を更新しました。",
-} as const
 
 type FormState = {
   campaignStart: string
   campaignEnd: string
+  campaignTimezone: string
+  couponUsageMode: CouponUsageMode
+  couponUsageStart: string
+  couponUsageEnd: string
   campaignDescription: string
   backgroundImageUrl: string
   stampImageUrl: string
@@ -53,11 +31,16 @@ type FormState = {
 
 export default function TenantAdminCampaignPage() {
   const { tenantId, seed, session, refreshSeed } = useTenantAdmin()
+  const TEXT = useCampaignText()
   const navigate = useNavigate()
 
   const [form, setForm] = useState<FormState>(() => ({
     campaignStart: seed.tenant.campaignStart ?? "",
     campaignEnd: seed.tenant.campaignEnd ?? "",
+    campaignTimezone: seed.tenant.campaignTimezone ?? "UTC+09:00",
+    couponUsageMode: (seed.tenant.couponUsageMode ?? "campaign") as CouponUsageMode,
+    couponUsageStart: seed.tenant.couponUsageStart ?? "",
+    couponUsageEnd: seed.tenant.couponUsageEnd ?? "",
     campaignDescription: seed.tenant.campaignDescription ?? "",
     backgroundImageUrl: seed.tenant.backgroundImageUrl ?? "",
     stampImageUrl: seed.tenant.stampImageUrl ?? "",
@@ -69,10 +52,65 @@ export default function TenantAdminCampaignPage() {
   const [uploadingField, setUploadingField] = useState<"background" | "stamp" | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
+  const themeOptions = useMemo(
+    () =>
+      THEME_PALETTE.map((option) => {
+        switch (option.value) {
+          case "teal":
+            return {
+              ...option,
+              label: TEXT.themeOptionTealLabel,
+              description: TEXT.themeOptionTealDescription,
+            }
+          case "green":
+            return {
+              ...option,
+              label: TEXT.themeOptionGreenLabel,
+              description: TEXT.themeOptionGreenDescription,
+            }
+          case "pink":
+            return {
+              ...option,
+              label: TEXT.themeOptionPinkLabel,
+              description: TEXT.themeOptionPinkDescription,
+            }
+          case "orange":
+          default:
+            return {
+              ...option,
+              label: TEXT.themeOptionOrangeLabel,
+              description: TEXT.themeOptionOrangeDescription,
+            }
+        }
+      }),
+    [
+      TEXT.themeOptionGreenDescription,
+      TEXT.themeOptionGreenLabel,
+      TEXT.themeOptionOrangeDescription,
+      TEXT.themeOptionOrangeLabel,
+      TEXT.themeOptionPinkDescription,
+      TEXT.themeOptionPinkLabel,
+      TEXT.themeOptionTealDescription,
+      TEXT.themeOptionTealLabel,
+    ],
+  )
+
+  const timezoneOptions = useMemo(
+    () => [
+      { value: "UTC+09:00", label: TEXT.timezoneOption0900 },
+      { value: "UTC+08:00", label: TEXT.timezoneOption0800 },
+    ],
+    [TEXT.timezoneOption0800, TEXT.timezoneOption0900],
+  )
+
   useEffect(() => {
     setForm({
       campaignStart: seed.tenant.campaignStart ?? "",
       campaignEnd: seed.tenant.campaignEnd ?? "",
+      campaignTimezone: seed.tenant.campaignTimezone ?? "UTC+09:00",
+      couponUsageMode: (seed.tenant.couponUsageMode ?? "campaign") as CouponUsageMode,
+      couponUsageStart: seed.tenant.couponUsageStart ?? "",
+      couponUsageEnd: seed.tenant.couponUsageEnd ?? "",
       campaignDescription: seed.tenant.campaignDescription ?? "",
       backgroundImageUrl: seed.tenant.backgroundImageUrl ?? "",
       stampImageUrl: seed.tenant.stampImageUrl ?? "",
@@ -82,6 +120,10 @@ export default function TenantAdminCampaignPage() {
   }, [
     seed.tenant.campaignStart,
     seed.tenant.campaignEnd,
+    seed.tenant.campaignTimezone,
+    seed.tenant.couponUsageMode,
+    seed.tenant.couponUsageStart,
+    seed.tenant.couponUsageEnd,
     seed.tenant.campaignDescription,
     seed.tenant.backgroundImageUrl,
     seed.tenant.stampImageUrl,
@@ -97,7 +139,7 @@ export default function TenantAdminCampaignPage() {
 
   const handleChange =
     (key: keyof FormState) =>
-    (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
       const value = event.target.value
       setForm((prev) => ({
         ...prev,
@@ -109,6 +151,16 @@ export default function TenantAdminCampaignPage() {
     setForm((prev) => ({
       ...prev,
       themeColor: value,
+    }))
+  }
+
+  const handleCouponUsageModeChange = (mode: CouponUsageMode) => {
+    setForm((prev) => ({
+      ...prev,
+      couponUsageMode: mode,
+      ...(mode === "campaign"
+        ? { couponUsageStart: "", couponUsageEnd: "" }
+        : {}),
     }))
   }
 
@@ -179,6 +231,12 @@ export default function TenantAdminCampaignPage() {
       await updateTenantCampaign(session.accessToken, tenantId, {
         campaignStart: form.campaignStart || undefined,
         campaignEnd: form.campaignEnd || undefined,
+        campaignTimezone: form.campaignTimezone || undefined,
+        couponUsageMode: form.couponUsageMode,
+        couponUsageStart:
+          form.couponUsageMode === "custom" ? form.couponUsageStart || undefined : undefined,
+        couponUsageEnd:
+          form.couponUsageMode === "custom" ? form.couponUsageEnd || undefined : undefined,
         campaignDescription: form.campaignDescription.trim() || undefined,
         backgroundImageUrl: form.backgroundImageUrl || undefined,
         stampImageUrl: form.stampImageUrl || undefined,
@@ -192,7 +250,7 @@ export default function TenantAdminCampaignPage() {
       if (status === 401) {
         handleUnauthorized()
       } else {
-        const msg = err instanceof Error ? err.message : "設定の更新に失敗しました。"
+        const msg = err instanceof Error ? err.message : TEXT.saveFailure
         setError(msg)
       }
     } finally {
@@ -203,8 +261,8 @@ export default function TenantAdminCampaignPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-6 p-4 pb-20">
       <header className="space-y-2">
-        <h1 className="text-2xl font-semibold text-gray-900">{TEXT.headerTitle}</h1>
-        <p className="text-sm text-gray-600">{TEXT.headerDescription}</p>
+        <h1 className="text-2xl font-semibold text-gray-900">{TEXT.pageTitle}</h1>
+        <p className="text-sm text-gray-600">{TEXT.pageDescription}</p>
       </header>
 
       {message && <div className="rounded-md bg-emerald-50 px-4 py-2 text-sm text-emerald-700">{message}</div>}
@@ -212,7 +270,7 @@ export default function TenantAdminCampaignPage() {
 
       <form className="space-y-6 rounded-xl border border-gray-200 bg-white/90 p-5 shadow-sm" onSubmit={handleSubmit}>
         <section className="space-y-4">
-          <h2 className="text-lg font-semibold text-gray-900">開催期間</h2>
+          <h2 className="text-lg font-semibold text-gray-900">{TEXT.scheduleSectionTitle}</h2>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
               <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
@@ -236,6 +294,23 @@ export default function TenantAdminCampaignPage() {
                 className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-orange-400 focus:outline-none focus:ring-1 focus:ring-orange-400"
               />
             </div>
+          </div>
+          <div>
+            <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+              {TEXT.campaignTimezoneLabel}
+            </label>
+            <p className="mt-1 text-xs text-gray-500">{TEXT.campaignTimezoneDescription}</p>
+            <select
+              value={form.campaignTimezone}
+              onChange={handleChange("campaignTimezone")}
+              className="mt-2 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:border-orange-400 focus:outline-none focus:ring-1 focus:ring-orange-400"
+            >
+              {timezoneOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
           </div>
           <div>
             <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
@@ -265,10 +340,77 @@ export default function TenantAdminCampaignPage() {
             />
             <p className="mt-1 text-xs text-gray-500">{TEXT.maxStampHelp}</p>
           </div>
+          <div className="space-y-3">
+            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+              {TEXT.couponUsageSectionTitle}
+            </span>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <label
+                className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition ${
+                  form.couponUsageMode === "campaign"
+                    ? "border-orange-400 bg-orange-50 text-orange-600"
+                    : "border-gray-200 bg-white text-gray-600 hover:border-orange-200"
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="coupon-usage-mode"
+                  value="campaign"
+                  checked={form.couponUsageMode === "campaign"}
+                  onChange={() => handleCouponUsageModeChange("campaign")}
+                  className="sr-only"
+                />
+                <span>{TEXT.couponUsageModeCampaign}</span>
+              </label>
+              <label
+                className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition ${
+                  form.couponUsageMode === "custom"
+                    ? "border-orange-400 bg-orange-50 text-orange-600"
+                    : "border-gray-200 bg-white text-gray-600 hover:border-orange-200"
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="coupon-usage-mode"
+                  value="custom"
+                  checked={form.couponUsageMode === "custom"}
+                  onChange={() => handleCouponUsageModeChange("custom")}
+                  className="sr-only"
+                />
+                <span>{TEXT.couponUsageModeCustom}</span>
+              </label>
+            </div>
+            {form.couponUsageMode === "custom" && (
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div>
+                  <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    {TEXT.couponUsageStartLabel}
+                  </label>
+                  <input
+                    type="date"
+                    value={form.couponUsageStart}
+                    onChange={handleChange("couponUsageStart")}
+                    className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-orange-400 focus:outline-none focus:ring-1 focus:ring-orange-400"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    {TEXT.couponUsageEndLabel}
+                  </label>
+                  <input
+                    type="date"
+                    value={form.couponUsageEnd}
+                    onChange={handleChange("couponUsageEnd")}
+                    className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-orange-400 focus:outline-none focus:ring-1 focus:ring-orange-400"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
         </section>
 
         <section className="space-y-4">
-          <h2 className="text-lg font-semibold text-gray-900">画像設定</h2>
+          <h2 className="text-lg font-semibold text-gray-900">{TEXT.imageSectionTitle}</h2>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
@@ -277,7 +419,7 @@ export default function TenantAdminCampaignPage() {
               <div className="space-y-2 rounded-lg border border-dashed border-gray-300 p-3">
                 <input
                   type="file"
-                  accept="image/*"
+                  accept={ACCEPTED_IMAGE_TYPES}
                   onChange={handleFileChange("backgroundImageUrl", "background")}
                   disabled={uploadingField === "background"}
                   className="block w-full text-sm text-gray-700 file:mr-3 file:rounded-md file:border-0 file:bg-orange-500 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-orange-600"
@@ -289,7 +431,7 @@ export default function TenantAdminCampaignPage() {
                   <div className="space-y-2">
                     <img
                       src={form.backgroundImageUrl}
-                      alt="背景画像プレビュー"
+                      alt={TEXT.backgroundPreviewAlt}
                       className="h-32 w-full rounded-md border border-gray-200 object-cover"
                     />
                     <div className="flex flex-wrap gap-2 text-xs text-gray-600">
@@ -330,7 +472,7 @@ export default function TenantAdminCampaignPage() {
               <div className="space-y-2 rounded-lg border border-dashed border-gray-300 p-3">
                 <input
                   type="file"
-                  accept="image/*"
+                  accept={ACCEPTED_IMAGE_TYPES}
                   onChange={handleFileChange("stampImageUrl", "stamp")}
                   disabled={uploadingField === "stamp"}
                   className="block w-full text-sm text-gray-700 file:mr-3 file:rounded-md file:border-0 file:bg-orange-500 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-orange-600"
@@ -340,7 +482,7 @@ export default function TenantAdminCampaignPage() {
                   <div className="space-y-2">
                     <img
                       src={form.stampImageUrl}
-                      alt="スタンプ画像プレビュー"
+                      alt={TEXT.stampPreviewAlt}
                       className="h-32 w-full rounded-md border border-gray-200 object-cover"
                     />
                     <div className="flex flex-wrap gap-2 text-xs text-gray-600">
@@ -380,7 +522,7 @@ export default function TenantAdminCampaignPage() {
           <h2 className="text-lg font-semibold text-gray-900">{TEXT.themeSectionTitle}</h2>
           <p className="text-xs text-gray-500">{TEXT.themeSectionDescription}</p>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {THEME_OPTIONS.map((option) => {
+            {themeOptions.map((option) => {
               const checked = form.themeColor === option.value
               return (
                 <label
